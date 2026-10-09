@@ -1826,7 +1826,7 @@ function parsePastedSlip() {
   // Amerikanskt format först: "Oct 9, 2026" / "October 9 2026" / "Oct 9th, 2026" / "09 Oct 2026"
   const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
   const monthNames = Object.keys(MONTHS).join("|");
-  let dateMatch = clean.match(new RegExp("(" + monthNames + ")[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})", "i"));
+  let dateMatch = clean.match(new RegExp("(" + monthNames + ")[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})", "i"));
   if (dateMatch) {
     const mon = MONTHS[dateMatch[1].slice(0,3).toLowerCase()];
     const d = dateMatch[3] + "-" + String(mon).padStart(2, "0") + "-" + dateMatch[2].padStart(2, "0");
@@ -1834,7 +1834,7 @@ function parsePastedSlip() {
   }
   if (!dateMatch) {
     // "9 Oct 2026" / "09-Oct-26" (dag först, månad som text)
-    dateMatch = clean.match(new RegExp("\b(\d{1,2})(?:st|nd|rd|th)?[-\s]+(" + monthNames + ")[a-z]*\.?,?[\s-]+(\d{2,4})\b", "i"));
+    dateMatch = clean.match(new RegExp("\\b(\\d{1,2})(?:st|nd|rd|th)?[-\\s]+(" + monthNames + ")[a-z]*\\.?,?[\\s-]+(\\d{2,4})\\b", "i"));
     if (dateMatch) {
       const mon = MONTHS[dateMatch[2].slice(0,3).toLowerCase()];
       let year = dateMatch[3];
