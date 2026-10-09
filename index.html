@@ -1838,8 +1838,8 @@ function renderPredNow(w) {
   if (!w) { el.innerHTML = "Weather unavailable – prediction will show once weather is fetched."; meta.textContent = ""; return; }
   const ets = vehicleRuns.filter(r => r.et14 && r.weather && r.weather.temp !== null && r.include_in_pred !== false).map(r => ({ et: parseFloat(r.et14), temp: parseFloat(r.weather.temp) }));
   if (!ets.length) {
-    el.innerHTML = `<span class="dash-num warn">No history yet</span> – registrera runs med ET och väder för att få en prediktion.`;
-    meta.textContent = `${w.track || "Track"}: ${w.temp}°C, vind ${w.wind} m/s, ${w.cond}.`
+    el.innerHTML = `<span class="dash-num warn">No history yet</span> – log runs with ET and weather to get a prediction.`;
+    meta.textContent = `${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
     return;
   }
   const tNow = parseFloat(w.temp);
@@ -1853,8 +1853,9 @@ function renderPredNow(w) {
     windAdj = hw * 0.01;
     pred += windAdj;
   }
-  el.innerHTML = `<span class="dash-num ok">${pred.toFixed(3)}s</span> – estimated 1/4 ET in current weather${hw !== null && hw !== undefined && !isNaN(hw) ? "<br><span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", bana riktning " + (trackByName(w.track).bearing) + "°, wind from " + (w.windDir ?? "?") + "°)</span>" : ""}`;
-  meta.textContent = `Base: ${avgEt.toFixed(3)}s average of ${ets.length} runs vid ${avgTemp.toFixed(1)}°C · Temp adjustment: ${(tNow-avgTemp).toFixed(1)}°C → ${((factor-1)*100).toFixed(1)}%${windAdj !== 0 ? " · Wind adjustment: " + (windAdj > 0 ? "+" : "") + windAdj.toFixed(3) + "s" : ""} · ${w.track || "Track"}: ${w.temp}°C, vind ${w.wind} m/s, ${w.cond}`;
+  const daTxt = w.densityAlt !== null && w.densityAlt !== undefined ? "Density altitude: " + w.densityAlt + " ft" : "";
+  el.innerHTML = `<span class="dash-num ok">${pred.toFixed(3)}s</span> – estimated 1/4 ET in current weather${hw !== null && hw !== undefined && !isNaN(hw) ? "<br><span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", track direction " + trackByName(w.track).bearing + "\u00b0, wind from " + (w.windDir ?? "?") + "\u00b0)</span>" : ""}${daTxt ? "<br><span class='muted' style='font-size:.85rem'>" + daTxt + "</span>" : ""}`;
+  meta.textContent = `Base: ${avgEt.toFixed(3)}s average of ${ets.length} runs at ${avgTemp.toFixed(1)}\u00b0C · Temp adjustment: ${(tNow-avgTemp).toFixed(1)}\u00b0C → ${((factor-1)*100).toFixed(1)}%${windAdj !== 0 ? " · Wind adjustment: " + (windAdj > 0 ? "+" : "") + windAdj.toFixed(3) + "s" : ""}${daTxt ? " · " + daTxt : ""} · ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}`;
 }
 
 function refreshPredWeather() {
