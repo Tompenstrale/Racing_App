@@ -538,9 +538,13 @@
         <select id="run_track" onchange="fillRunWeatherHint()"></select>
       </div>
       <div class="field"><label>60-ft (s)</label><input id="run_ft60" type="number" step="0.001"></div>
-      <div class="field"><label>1/8 ET (s)</label><input id="run_et18" type="number" step="0.001"></div>
-      <div class="field"><label>1/4 ET (s)</label><input id="run_et14" type="number" step="0.001"></div>
+      <div class="field"><label>100 m ET (s)</label><input id="run_et100" type="number" step="0.001"></div>
+      <div class="field"><label>201 m (1/8) ET (s)</label><input id="run_et18" type="number" step="0.001"></div>
+      <div class="field"><label>402 m (1/4) ET (s)</label><input id="run_et14" type="number" step="0.001"></div>
       <div class="field"><label>Trap speed (km/h)</label><input id="run_mph" type="number" step="0.1"></div>
+      <div class="field"><label>Reaction time (s)</label><input id="run_rt" type="number" step="0.001"></div>
+      <div class="field"><label>Dial-in (s)</label><input id="run_dial" type="number" step="0.001"></div>
+      <div class="field"><label>Delay box (s)</label><input id="run_delaybox" type="number" step="0.001"></div>
     </div>
     <h3 style="font-size:.9rem;margin:14px 0 8px">Weather</h3>
     <div class="weather-hero">
@@ -1371,8 +1375,12 @@ function openRunModal(editIndex) {
     get("run_time").value = r.time || "";
     get("run_track").value = r.track && TRACKS.some(t => t.name === r.track) ? r.track : DEFAULT_TRACK;
     get("run_ft60").value = r.ft60 ?? "";
+    get("run_et100").value = r.et100 ?? "";
     get("run_et18").value = r.et18 ?? "";
     get("run_et14").value = r.et14 ?? "";
+    get("run_rt").value = r.rt ?? "";
+    get("run_dial").value = r.dial_in ?? "";
+    get("run_delaybox").value = r.delay_box ?? "";
     get("run_mph").value = r.mph ?? "";
     const w = r.weather || {};
     get("run_temp").value = w.temp ?? "";
@@ -1405,7 +1413,7 @@ function openRunModal(editIndex) {
     get("run_date").value = now.toISOString().slice(0,10);
     get("run_time").value = now.toTimeString().slice(0,5);
     get("run_track").value = lastTrack() || DEFAULT_TRACK;
-    ["run_ft60","run_et18","run_et14","run_mph","run_temp","run_wind","run_winddir","run_hum","run_cond"].forEach(f => get(f).value = "");
+    ["run_ft60","run_et100","run_et18","run_et14","run_mph","run_rt","run_dial","run_delaybox","run_temp","run_wind","run_winddir","run_hum","run_cond"].forEach(f => get(f).value = "");
     get("run_include").checked = true;
     get("run_headwind").textContent = "";
     get("runSaveBtn").textContent = "Save run";
@@ -1717,14 +1725,20 @@ function fillTimesFromText(text) {
     if (ft.length) { get("run_ft60").value = Math.min(...ft).toFixed(3); filled.push("60-ft: " + Math.min(...ft).toFixed(3)); }
   }
   const etCandidates = times.filter(v => v >= 3.0 && v <= 25);
-  if (etCandidates.length >= 2) {
+  if (etCandidates.length >= 3) {
     const sorted = etCandidates.slice().sort((a, b) => b - a);
-    if (!get("run_et14").value) { get("run_et14").value = sorted[0].toFixed(3); filled.push("1/4 ET: " + sorted[0].toFixed(3)); }
-    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("1/8 ET: " + sorted[1].toFixed(3)); }
+    if (!get("run_et14").value) { get("run_et14").value = sorted[0].toFixed(3); filled.push("402 m (1/4): " + sorted[0].toFixed(3)); }
+    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("201 m (1/8): " + sorted[1].toFixed(3)); }
+    if (!get("run_et100").value && sorted[2] >= 3 && sorted[2] <= 12) { get("run_et100").value = sorted[2].toFixed(3); filled.push("100 m: " + sorted[2].toFixed(3)); }
+  } else if (etCandidates.length === 2) {
+    const sorted = etCandidates.slice().sort((a, b) => b - a);
+    if (!get("run_et14").value && sorted[0] >= 9) { get("run_et14").value = sorted[0].toFixed(3); filled.push("402 m (1/4): " + sorted[0].toFixed(3)); }
+    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("201 m (1/8): " + sorted[1].toFixed(3)); }
   } else if (etCandidates.length === 1) {
     const v = etCandidates[0];
-    if (!get("run_et14").value && v >= 9) { get("run_et14").value = v.toFixed(3); filled.push("1/4 ET: " + v.toFixed(3)); }
-    else if (!get("run_et18").value && v < 9) { get("run_et18").value = v.toFixed(3); filled.push("1/8 ET: " + v.toFixed(3)); }
+    if (!get("run_et14").value && v >= 9) { get("run_et14").value = v.toFixed(3); filled.push("402 m (1/4): " + v.toFixed(3)); }
+    else if (!get("run_et18").value && v < 9 && v >= 4) { get("run_et18").value = v.toFixed(3); filled.push("201 m (1/8): " + v.toFixed(3)); }
+    else if (!get("run_et100").value && v < 4) { get("run_et100").value = v.toFixed(3); filled.push("100 m: " + v.toFixed(3)); }
   }
   if (!get("run_mph").value && speeds.length) {
     const mph = Math.max(...speeds);
@@ -1769,9 +1783,13 @@ function saveRun() {
     track: get("run_track").value,
     weather_source: "banbaserad",
     ft60: get("run_ft60").value || null,
+    et100: get("run_et100").value || null,
     et18: get("run_et18").value || null,
     et14: get("run_et14").value || null,
     mph: get("run_mph").value || null,
+    rt: get("run_rt").value || null,
+    dial_in: get("run_dial").value || null,
+    delay_box: get("run_delaybox").value || null,
     include_in_pred: get("run_include").checked,
     weather: {
       temp: get("run_temp").value || null,
@@ -1863,7 +1881,7 @@ function renderRuns() {
     tr.onclick = (e) => { if (!e.target.closest("button")) toggleRunDetails(i); };
     tr.innerHTML = `
       <td>${r.date}${r.time ? ` <span class="muted" style="font-size:.78rem">${r.time}</span>` : ""}</td>
-      <td><strong>${r.et14 ?? "–"}</strong></td>
+      <td><strong>${r.et14 ?? r.et18 ?? r.et100 ?? "–"}</strong></td>
       <td><button class="btn-sm" onclick="event.stopPropagation(); toggleRunInclude(${i})" title="Toggle whether the run is used in prediction" style="${included ? "color:var(--ok)" : "color:var(--muted)"}">${included ? "✓ Yes" : "✕ No"}</button></td>
       <td>
         <button class="btn-sm" onclick="event.stopPropagation(); openRunModal(${i})" title="Edit run">✎</button>
@@ -1894,8 +1912,13 @@ function renderRuns() {
         <div class="detail-grid" style="font-size:.85em">
           <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
           <div><div class="dl">60-ft</div><div class="dv">${r.ft60 ?? "–"}</div></div>
-          <div><div class="dl">1/8 ET</div><div class="dv">${r.et18 ?? "–"}</div></div>
+          <div><div class="dl">100 m</div><div class="dv">${r.et100 ?? "–"}</div></div>
+          <div><div class="dl">201 m (1/8)</div><div class="dv">${r.et18 ?? "–"}</div></div>
+          <div><div class="dl">402 m (1/4)</div><div class="dv">${r.et14 ?? "–"}</div></div>
           <div><div class="dl">Trap speed</div><div class="dv">${r.mph ?? "–"} km/h</div></div>
+          <div><div class="dl">Reaction time</div><div class="dv">${r.rt ?? "–"}</div></div>
+          <div><div class="dl">Dial-in</div><div class="dv">${r.dial_in ?? "–"}</div></div>
+          <div><div class="dl">Delay box</div><div class="dv">${r.delay_box ?? "–"}</div></div>
           <div><div class="dl">Temp</div><div class="dv">${w.temp ?? "–"}°C</div></div>
           <div><div class="dl">Conditions</div><div class="dv">${w.cond || "–"}</div></div>
           <div><div class="dl">Wind</div><div class="dv">${w.wind ?? "–"} m/s from ${w.winddir ?? "–"}°</div></div>
@@ -1917,31 +1940,54 @@ function toggleRunDetails(i) {
   renderRuns();
 }
 
+/* Prediktion per distans: använder alla inkluderade runs som har ET för just den distansen.
+   Temp-faktor + vindjustering per distans (vind påverkar långsamma distanser mer). */
+function predictForDistance(field, w, windScale) {
+  const runs = vehicleRuns.filter(r => r[field] && r.weather && r.weather.temp !== null && r.include_in_pred !== false);
+  if (!runs.length) return null;
+  const tNow = parseFloat(w.temp);
+  const avgTemp = runs.reduce((s2, r) => s2 + parseFloat(r.weather.temp), 0) / runs.length;
+  const avgEt = runs.reduce((s2, r) => s2 + parseFloat(r[field]), 0) / runs.length;
+  const factor = 1 + (avgTemp - tNow) * 0.002;
+  let pred = avgEt * factor;
+  const hw = w.headwind;
+  if (hw !== null && hw !== undefined && !isNaN(hw)) pred += hw * windScale;
+  return { pred, n: runs.length, base: avgEt, avgTemp };
+}
+
 function renderPredNow(w) {
   const el = get("predNow");
   const meta = get("predNowMeta");
   if (!el) return;
   if (!w) { el.innerHTML = "Weather unavailable – prediction will show once weather is fetched."; meta.textContent = ""; return; }
-  const ets = vehicleRuns.filter(r => r.et14 && r.weather && r.weather.temp !== null && r.include_in_pred !== false).map(r => ({ et: parseFloat(r.et14), temp: parseFloat(r.weather.temp) }));
-  if (!ets.length) {
+  const dists = [
+    { key: "ft60", label: "60-ft", wind: 0.002 },
+    { key: "et100", label: "100 m", wind: 0.004 },
+    { key: "et18", label: "201 m (1/8)", wind: 0.007 },
+    { key: "et14", label: "402 m (1/4)", wind: 0.010 }
+  ];
+  let rows = "";
+  let any = false;
+  dists.forEach(d => {
+    const r = predictForDistance(d.key, w, d.wind);
+    if (r) {
+      any = true;
+      rows += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span>${d.label} <span class="muted" style="font-size:.75rem">(${r.n} runs)</span></span>
+        <strong style="font-size:1.15rem">${r.pred.toFixed(3)}s</strong>
+      </div>`;
+    }
+  });
+  if (!any) {
     el.innerHTML = `<span class="dash-num warn">No history yet</span> – log runs with ET and weather to get a prediction.`;
     meta.textContent = `${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
     return;
   }
-  const tNow = parseFloat(w.temp);
-  const avgTemp = ets.reduce((s2, e) => s2 + e.temp, 0) / ets.length;
-  const avgEt = ets.reduce((s2, e) => s2 + e.et, 0) / ets.length;
-  const factor = 1 + (avgTemp - tNow) * 0.002;
-  let pred = avgEt * factor;
   const hw = w.headwind;
-  let windAdj = 0;
-  if (hw !== null && hw !== undefined && !isNaN(hw)) {
-    windAdj = hw * 0.01;
-    pred += windAdj;
-  }
   const daTxt = w.densityAlt !== null && w.densityAlt !== undefined ? "Density altitude: " + w.densityAlt + " ft" : "";
-  el.innerHTML = `<span class="dash-num ok">${pred.toFixed(3)}s</span> – estimated 1/4 ET in current weather${hw !== null && hw !== undefined && !isNaN(hw) ? "<br><span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", track direction " + trackByName(w.track).bearing + "\u00b0, wind from " + (w.windDir ?? "?") + "\u00b0)</span>" : ""}${daTxt ? "<br><span class='muted' style='font-size:.85rem'>" + daTxt + "</span>" : ""}`;
-  meta.textContent = `Base: ${avgEt.toFixed(3)}s average of ${ets.length} runs at ${avgTemp.toFixed(1)}\u00b0C · Temp adjustment: ${(tNow-avgTemp).toFixed(1)}\u00b0C → ${((factor-1)*100).toFixed(1)}%${windAdj !== 0 ? " · Wind adjustment: " + (windAdj > 0 ? "+" : "") + windAdj.toFixed(3) + "s" : ""}${daTxt ? " · " + daTxt : ""} · ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}`;
+  el.innerHTML = `Predicted ET in current weather:
+  <div style="margin-top:6px">${rows}</div>${hw !== null && hw !== undefined && !isNaN(hw) ? "<span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", wind from " + (w.windDir ?? "?") + "\u00b0)</span>" : ""}${daTxt ? "<br><span class='muted' style='font-size:.85rem'>" + daTxt + "</span>" : ""}`;
+  meta.textContent = `Temp adjustment vs history: ${((parseFloat(w.temp) - (predictForDistance("et14", w, 0) || predictForDistance("et18", w, 0) || { avgTemp: parseFloat(w.temp) }).avgTemp)).toFixed(1)}\u00b0C${daTxt ? " · " + daTxt : ""} · ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}`;
 }
 
 function refreshPredWeather() {
@@ -2382,9 +2428,9 @@ function loadDemo() {
       }
     },
     runs: [
-      { date: new Date(Date.now() - 40*86400000).toISOString().slice(0,10), time: "13:20", track: "Tierp Arena", ft60: "1.621", et18: "7.812", et14: "12.205", mph: "182.4", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.5", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "21.5", wind: "2.1", winddir: "10", headwind: 2.0, hum: "55", cond: "Clear" } },
-      { date: new Date(Date.now() - 14*86400000).toISOString().slice(0,10), time: "14:05", track: "Tierp Arena", ft60: "1.585", et18: "7.743", et14: "12.118", mph: "184.1", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.2", wind: "3.4", winddir: "50", headwind: 3.3, hum: "62", cond: "Cloudy" } },
-      { date: new Date(Date.now() - 13*86400000).toISOString().slice(0,10), time: "15:30", track: "Tierp Arena", ft60: "1.912", et18: "8.410", et14: "13.348", mph: "171.2", include_in_pred: false, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.0", wind: "4.2", winddir: "55", headwind: 4.0, hum: "65", cond: "Showers" } }
+      { date: new Date(Date.now() - 40*86400000).toISOString().slice(0,10), time: "13:20", track: "Tierp Arena", ft60: "1.621", et100: "4.512", et18: "7.812", et14: "12.205", mph: "182.4", rt: "0.128", dial_in: "12.20", delay_box: "0.032", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.5", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "21.5", wind: "2.1", winddir: "10", headwind: 2.0, hum: "55", cond: "Clear" } },
+      { date: new Date(Date.now() - 14*86400000).toISOString().slice(0,10), time: "14:05", track: "Tierp Arena", ft60: "1.585", et100: "4.498", et18: "7.743", et14: "12.118", mph: "184.1", rt: "0.095", dial_in: "12.15", delay_box: "0.032", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.2", wind: "3.4", winddir: "50", headwind: 3.3, hum: "62", cond: "Cloudy" } },
+      { date: new Date(Date.now() - 13*86400000).toISOString().slice(0,10), time: "15:30", track: "Tierp Arena", ft60: "1.912", et100: "4.902", et18: "8.410", et14: null, mph: "158.2", rt: "0.210", dial_in: "8.40", delay_box: null, include_in_pred: false, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.0", wind: "4.2", winddir: "55", headwind: 4.0, hum: "65", cond: "Showers" } }
     ],
     race_log: [
       { date: new Date(Date.now() - 14*86400000).toISOString().slice(0,10), count: 3 },
