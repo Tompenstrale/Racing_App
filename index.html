@@ -179,7 +179,7 @@
   <button class="viewbtn" id="viewbtn-runs" onclick="showView('runs')">⏱ Runs</button>
   <button class="viewbtn" id="viewbtn-pred" onclick="showView('pred')">📊 Prediction</button>
   <button class="viewbtn" id="viewbtn-data" onclick="showView('data')">💾 Data</button>
-  <img class="applogo" src="logo.png" alt="RacingApp logo">
+  <img class="applogo" src="logo.png" alt="RacingApp logo" style="cursor:pointer" onclick="logoClick()">
 </div>
 
 <div id="viewGarage">
@@ -2256,6 +2256,13 @@ function loadDemo() {
       { date: new Date(Date.now() - 40*86400000).toISOString().slice(0,10), count: 2 }
     ]
   });
+}
+
+/* ---- Logo link ---- */
+function logoClick() {
+  if (confirm("Open www.lindbladracing.se in a new tab?")) {
+    window.open("https://www.lindbladracing.se", "_blank");
+  }
 }
 
 /* ---- Cloud sync (GitHub) ---- */
