@@ -178,6 +178,7 @@
   <button class="viewbtn active" id="viewbtn-garage" onclick="showView('garage')">🔧 Garage</button>
   <button class="viewbtn" id="viewbtn-runs" onclick="showView('runs')">⏱ Runs</button>
   <button class="viewbtn" id="viewbtn-pred" onclick="showView('pred')">📊 Prediction</button>
+  <button class="viewbtn" id="viewbtn-data" onclick="showView('data')">💾 Data</button>
   <img class="applogo" src="logo.png" alt="RacingApp logo">
 </div>
 
@@ -509,34 +510,12 @@
   </table>
 </div>
 
-<div class="btnrow">
-  <button onclick="save()">💾 Save</button>
-  <button class="ghost" onclick="exportBackup()">📤 Backup</button>
-  <button class="ghost" onclick="get('importFile').click()">📥 Restore</button>
-  <button class="ghost" onclick="loadDemo()">Load example</button>
-  <button class="ghost" onclick="clearAll()">Clear</button>
-</div>
-<input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+
 
 <div class="meta">Saved locally in the browser (localStorage) – example data only.</div>
 </div>
 
-<div class="card" id="cardCloud">
-  <h2>☁ Cloud sync</h2>
-  <p class="meta" style="margin-top:0;margin-bottom:12px">Push/pull the whole database (all vehicles, runs, settings) to a shared JSON file in a GitHub repository. Any device can pull, edit and push – last push wins, so always pull before editing and push after. The token is stored only on this device.</p>
-  <div class="grid">
-    <div class="field"><label>Repository (owner/name)</label><input id="cloud_repo" placeholder="Tompenstrale/Racing_App"></div>
-    <div class="field"><label>Branch</label><input id="cloud_branch" placeholder="main"></div>
-    <div class="field"><label>File path in repo</label><input id="cloud_path" placeholder="data/racingapp-data.json"></div>
-    <div class="field"><label>Token (fine-grained PAT, Contents: RW)</label><input id="cloud_token" type="password" placeholder="github_pat_…"></div>
-  </div>
-  <div class="btnrow" style="margin-top:14px">
-    <button onclick="pushToCloud()">☁ Push to cloud</button>
-    <button class="ghost" onclick="pullFromCloud()">☁ Pull from cloud</button>
-    <button class="ghost" onclick="saveCloudConfig()">Save settings</button>
-  </div>
-  <div class="meta" id="cloudStatus" style="margin-top:10px"></div>
-</div>
+
 
 <div class="modal" id="runModal">
   <div class="inner" style="width:min(560px,95vw);max-height:90vh;overflow-y:auto">
@@ -618,6 +597,45 @@
       <tbody id="runsBody"></tbody>
     </table>
   </div>
+
+  <div class="btnrow">
+    <button class="ghost" onclick="showView('garage')">← Back to garage</button>
+  </div>
+</div>
+
+<div id="viewData" style="display:none">
+  <h1>💾 Data</h1>
+  <div class="subtitle">Save, backup, restore and cloud sync – all data management in one place.</div>
+
+  <div class="card">
+    <h2>Local data</h2>
+    <p class="meta" style="margin-top:0;margin-bottom:12px">Data lives in this browser (localStorage). Save writes current edits; Backup exports everything to a JSON file; Restore imports a previous export.</p>
+<div class="btnrow" style="margin-top:0">
+  <button onclick="save()">💾 Save</button>
+  <button class="ghost" onclick="exportBackup()">📤 Backup</button>
+  <button class="ghost" onclick="get('importFile').click()">📥 Restore</button>
+  <button class="ghost" onclick="loadDemo()">Load example</button>
+  <button class="ghost" onclick="clearAll()">Clear</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+  </div>
+
+<div class="card" id="cardCloud">
+  <h2>☁ Cloud sync</h2>
+  <p class="meta" style="margin-top:0;margin-bottom:12px">Push/pull the whole database (all vehicles, runs, settings) to a shared JSON file in a GitHub repository. Any device can pull, edit and push – last push wins, so always pull before editing and push after. The token is stored only on this device.</p>
+  <div class="grid">
+    <div class="field"><label>Repository (owner/name)</label><input id="cloud_repo" placeholder="Tompenstrale/Racing_App"></div>
+    <div class="field"><label>Branch</label><input id="cloud_branch" placeholder="main"></div>
+    <div class="field"><label>File path in repo</label><input id="cloud_path" placeholder="data/racingapp-data.json"></div>
+    <div class="field"><label>Token (fine-grained PAT, Contents: RW)</label><input id="cloud_token" type="password" placeholder="github_pat_…"></div>
+  </div>
+  <div class="btnrow" style="margin-top:14px">
+    <button onclick="pushToCloud()">☁ Push to cloud</button>
+    <button class="ghost" onclick="pullFromCloud()">☁ Pull from cloud</button>
+    <button class="ghost" onclick="saveCloudConfig()">Save settings</button>
+  </div>
+  <div class="meta" id="cloudStatus" style="margin-top:10px"></div>
+</div>
 
   <div class="btnrow">
     <button class="ghost" onclick="showView('garage')">← Back to garage</button>
@@ -1216,11 +1234,14 @@ window.addEventListener("message", function(ev) {
 function showView(v) {
   get("viewGarage").style.display = v === "garage" ? "" : "none";
   get("viewRuns").style.display = v === "runs" ? "" : "none";
+  get("viewData").style.display = v === "data" ? "" : "none";
   get("viewPred").style.display = v === "pred" ? "" : "none";
   get("viewbtn-garage").classList.toggle("active", v === "garage");
   get("viewbtn-runs").classList.toggle("active", v === "runs");
+  get("viewbtn-data").classList.toggle("active", v === "data");
   get("viewbtn-pred").classList.toggle("active", v === "pred");
   if (v === "runs") { renderRuns(); get("runsVehicleName").textContent = get("name").value || "New vehicle"; }
+  if (v === "data") { loadCloudInputs(); }
   if (v === "pred") { predRefresh(); refreshPredWeather(); }
 }
 
