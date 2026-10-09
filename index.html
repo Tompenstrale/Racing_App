@@ -571,6 +571,7 @@
     </div>
     <h3 style="font-size:.9rem;margin:12px 0 8px">Time slip</h3>
     <div class="timeslip" style="margin-bottom:12px">
+      <div class="ts-row ts-input"><span class="ts-label">Dial-in</span><input id="run_dial" type="number" step="0.001" class="ts-field"></div>
       <div class="ts-row ts-input"><span class="ts-label">Delay Box</span><input id="run_delaybox" type="number" step="0.001" class="ts-field"></div>
       <div class="ts-row ts-input"><span class="ts-label">Reaction Time</span><input id="run_rt" type="number" step="0.001" class="ts-field"></div>
       <div class="ts-row ts-input"><span class="ts-label">60 ft</span><input id="run_ft60" type="number" step="0.001" class="ts-field"></div>
@@ -579,7 +580,6 @@
       <div class="ts-row ts-input"><span class="ts-label">660 ft Speed</span><input id="run_mph18" type="number" step="0.1" class="ts-field"></div>
       <div class="ts-row ts-input"><span class="ts-label">1320 ft (1/4)</span><input id="run_et14" type="number" step="0.001" class="ts-field"></div>
       <div class="ts-row ts-input"><span class="ts-label">1320 ft Speed</span><input id="run_mph" type="number" step="0.1" class="ts-field"></div>
-      <div class="ts-row ts-input"><span class="ts-label">Dial-in</span><input id="run_dial" type="number" step="0.001" class="ts-field"></div>
     </div>
     <h3 style="font-size:.9rem;margin:14px 0 8px">Weather</h3>
     <div class="weather-hero">
@@ -2042,6 +2042,7 @@ function renderRuns() {
         <div class="meta" style="margin:0 0 8px 0">${[w.temp ?? null, (w.hum !== null && w.hum !== undefined) ? "RH " + w.hum + "%" : null, (w.wind !== null && w.wind !== undefined) ? "wind " + w.wind + " m/s" : null, (w.winddir !== null && w.winddir !== undefined) ? "from " + w.winddir + "°" : null, (w.pressure !== null && w.pressure !== undefined) ? w.pressure + " hPa" : null, w.cond || null, r.track || null].filter(x => x !== null).join(" · ")}</div>
         <div class="timeslip" style="margin:10px 0">
           <div class="ts-header">Time slip</div>
+          <div class="ts-row"><span class="ts-label">Dial-in</span><span class="ts-value">${r.dial_in ?? "–"}</span></div>
           <div class="ts-row"><span class="ts-label">Delay Box</span><span class="ts-value">${r.delay_box ?? "–"}</span></div>
           <div class="ts-row"><span class="ts-label">Reaction Time</span><span class="ts-value">${r.rt ?? "–"}</span></div>
           <div class="ts-row"><span class="ts-label">60 ft</span><span class="ts-value">${r.ft60 ?? "–"}</span></div>
@@ -2050,7 +2051,6 @@ function renderRuns() {
           <div class="ts-row"><span class="ts-label">660 ft Speed</span><span class="ts-value">${(r.mph18 ?? "–")}${r.mph18 ? " km/h" : ""}</span></div>
           <div class="ts-row"><span class="ts-label">1320 ft (1/4)</span><span class="ts-value">${r.et14 ?? "–"}</span></div>
           <div class="ts-row"><span class="ts-label">1320 ft Speed</span><span class="ts-value">${(r.mph ?? "–")}${r.mph ? " km/h" : ""}</span></div>
-          <div class="ts-row"><span class="ts-label">Dial-in</span><span class="ts-value">${r.dial_in ?? "–"}</span></div>
         </div>
         <div class="detail-grid" style="font-size:.85em">
           <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
