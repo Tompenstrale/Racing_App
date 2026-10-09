@@ -569,11 +569,7 @@
       <button class="ghost" id="run_photo_scan" style="display:none" onclick="scanRunPhoto()">🔍 Scan times from photo</button>
     </div>
     <img id="run_photo_preview" style="display:none;max-width:100%;max-height:220px;border-radius:8px;margin-bottom:12px" alt="Run photo">
-    <h3 style="font-size:.9rem;margin:0 0 8px">Paste time slip text</h3>
-    <div class="field" style="margin-bottom:12px">
-      <textarea id="run_paste" rows="3" placeholder="Paste or type time slip text here, e.g:&#10;R/T 0.128  60ft 1.621  330ft 4.512&#10;1/8 7.812 @ 143.6  1/4 12.205 @ 182.4" style="font-family:monospace;font-size:.85em"></textarea>
-      <button class="ghost" style="margin-top:6px" onclick="parsePastedSlip()">📥 Import text to time slip</button>
-    </div>
+
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
       <div class="field"><label>Date</label><input id="run_date" type="date"></div>
       <div class="field"><label>Time</label><input id="run_time" type="time"></div>
@@ -619,6 +615,11 @@
     <button class="ghost" style="margin-top:8px" onclick="fetchHistoricalWeather()">🕓 Fetch weather for date/time</button>
     <h3 style="font-size:.9rem;margin:14px 0 8px">Settings at time of run</h3>
     <div id="runSettings"></div>
+    <h3 style="font-size:.9rem;margin:14px 0 8px">Import from text (for migrating from other systems)</h3>
+    <div class="field" style="margin-bottom:12px">
+      <textarea id="run_paste" rows="3" placeholder="Paste or type time slip text here, e.g:&#10;2026-10-09 14:05&#10;R/T 0.128  60ft 1.621  330ft 4.512&#10;1/8 7.812 @ 143.6  1/4 12.205 @ 182.4" style="font-family:monospace;font-size:.85em"></textarea>
+      <button class="ghost" style="margin-top:6px" onclick="parsePastedSlip()">📥 Import text to time slip</button>
+    </div>
     <div class="field" style="margin-top:12px">
       <div class="toggle"><input type="checkbox" id="run_include" checked> <span>Include in prediction (uncheck if the run is not representative)</span></div>
     </div>
