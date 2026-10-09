@@ -550,6 +550,7 @@
       <input type="file" id="run_photo_input" accept="image/*" capture="environment" style="display:none" onchange="onRunPhoto(this)">
       <button class="ghost" onclick="get('run_photo_input').click()">📷 Take photo / choose image</button>
       <button class="ghost" id="run_photo_remove" style="display:none" onclick="clearRunPhoto()">✕ Remove photo</button>
+      <button class="ghost" id="run_photo_scan" style="display:none" onclick="scanRunPhoto()">🔍 Scan times from photo</button>
     </div>
     <img id="run_photo_preview" style="display:none;max-width:100%;max-height:220px;border-radius:8px;margin-top:8px" alt="Run photo">
     <h3 style="font-size:.9rem;margin:14px 0 8px">Settings at time of run</h3>
@@ -1295,6 +1296,7 @@ function openRunModal(editIndex) {
     get("run_headwind").textContent = w.headwind !== null && w.headwind !== undefined ? headwindText(w.headwind) : "";
     get("runSaveBtn").textContent = "Save changes";
     runPhotoData = r.photo || null;
+    runPhotoMeta = r.photo_meta || null;
     showRunPhoto();
     renderRunSettingsForRun(r);
     modal.classList.add("open");
@@ -1309,6 +1311,7 @@ function openRunModal(editIndex) {
     get("run_headwind").textContent = "";
     get("runSaveBtn").textContent = "Save run";
     runPhotoData = null;
+    runPhotoMeta = null;
     showRunPhoto();
     renderRunSettings();
     modal.classList.add("open");
@@ -1427,44 +1430,177 @@ function weatherName(code) {
 let lastWeather = null;
 
 let runPhotoData = null;
+let runPhotoMeta = null;
 
 function onRunPhoto(input) {
   const file = input.files && input.files[0];
   input.value = "";
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
+  const bufReader = new FileReader();
+  bufReader.onload = () => {
+    let meta = null;
+    try { meta = parseExifDateTime(bufReader.result); } catch(e) {}
+    if (!meta && file.lastModified) {
+      const d = new Date(file.lastModified);
+      meta = { date: d.toISOString().slice(0,10), time: d.toTimeString().slice(0,5) };
+    }
+    runPhotoMeta = meta;
     const img = new Image();
     img.onload = () => {
-      const maxW = 800;
+      const maxW = 1200;
       const scale = Math.min(1, maxW / img.width);
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      runPhotoData = canvas.toDataURL("image/jpeg", 0.7);
+      runPhotoData = canvas.toDataURL("image/jpeg", 0.85);
       showRunPhoto();
+      if (runPhotoMeta && editingRunIndex === null) {
+        get("run_date").value = runPhotoMeta.date;
+        get("run_time").value = runPhotoMeta.time;
+      }
     };
-    img.src = reader.result;
+    img.src = URL.createObjectURL(file);
   };
-  reader.readAsDataURL(file);
+  bufReader.readAsArrayBuffer(file);
+}
+
+/* --- EXIF: hämta DateTimeOriginal ur JPEG --- */
+function parseExifDateTime(buffer) {
+  const view = new DataView(buffer);
+  if (view.byteLength < 8 || view.getUint16(0) !== 0xFFD8) return null;
+  let offset = 2;
+  while (offset < view.byteLength - 4) {
+    if (view.getUint8(offset) !== 0xFF) return null;
+    const marker = view.getUint8(offset + 1);
+    if (marker === 0xD8 || (marker >= 0xD0 && marker <= 0xD7)) { offset += 2; continue; }
+    if (marker === 0xDA || marker === 0xD9) return null;
+    const size = view.getUint16(offset + 2);
+    if (marker === 0xE1 && size > 10) {
+      const exifStart = offset + 4;
+      if (view.getUint32(exifStart) === 0x45786966) {
+        return readExifDateTime(view, exifStart + 6);
+      }
+    }
+    offset += 2 + size;
+  }
+  return null;
+}
+
+function readExifDateTime(view, tiffStart) {
+  const little = view.getUint16(tiffStart) === 0x4949;
+  const g16 = o => view.getUint16(o, little);
+  const g32 = o => view.getUint32(o, little);
+  const ifd0 = tiffStart + g32(tiffStart + 4);
+  const ifd0Count = g16(ifd0);
+  let exifIfd = null;
+  for (let i = 0; i < ifd0Count; i++) {
+    const e = ifd0 + 2 + i * 12;
+    if (g16(e) === 0x8769) { exifIfd = tiffStart + g32(e + 8); break; }
+  }
+  if (exifIfd === null) return null;
+  const count = g16(exifIfd);
+  for (let i = 0; i < count; i++) {
+    const e = exifIfd + 2 + i * 12;
+    if (g16(e) === 0x9003) {
+      const n = g32(e + 4);
+      const valOff = n > 4 ? tiffStart + g32(e + 8) : e + 8;
+      let str = "";
+      for (let c = 0; c < n - 1 && valOff + c < view.byteLength; c++) str += String.fromCharCode(view.getUint8(valOff + c));
+      const m = str.match(/(\d{4})[:.](\d{2})[:.](\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+      if (m) return { date: m[1] + "-" + m[2] + "-" + m[3], time: m[4] + ":" + m[5] };
+    }
+  }
+  return null;
+}
+
+/* --- OCR: läs ut tider från fotot --- */
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector('script[src="' + src + '"]')) return res();
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = res;
+    el.onerror = () => rej(new Error("Could not load " + src));
+    document.head.appendChild(el);
+  });
+}
+
+async function scanRunPhoto() {
+  if (!runPhotoData) return;
+  const btn = get("run_photo_scan");
+  btn.disabled = true;
+  btn.textContent = "⏳ Scanning…";
+  try {
+    if (!window.Tesseract) {
+      await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+    }
+    const result = await Tesseract.recognize(runPhotoData, "eng");
+    const filled = fillTimesFromText(result.data.text || "");
+    if (filled.length) {
+      alert("Scanned and filled:\n" + filled.join("\n") + "\n\nRaw text:\n" + (result.data.text || "").slice(0, 300));
+    } else {
+      alert("Could not detect times with confidence. Raw text:\n" + (result.data.text || "(empty)").slice(0, 300) + "\n\nFill in the times manually.");
+    }
+  } catch (e) {
+    alert("Scanning failed: " + e.message + "\nNote: first scan downloads the OCR engine and needs internet.");
+  }
+  btn.disabled = false;
+  btn.textContent = "🔍 Scan times from photo";
+}
+
+function fillTimesFromText(text) {
+  const clean = text.replace(/O/g, "0").replace(/,/g, ".");
+  const tokens = (clean.match(/\d{1,3}(?:\.\d{1,3})?/g) || []).map(parseFloat);
+  const filled = [];
+  const times = tokens.filter(v => v >= 0.5 && v <= 30 && v.toString().includes("."));
+  const speeds = tokens.filter(v => v >= 60 && v <= 300 && (!v.toString().includes(".") || (v.toString().split(".")[1] || "").length <= 1));
+
+  if (!get("run_ft60").value) {
+    const ft = times.filter(v => v >= 0.8 && v < 3.0);
+    if (ft.length) { get("run_ft60").value = Math.min(...ft).toFixed(3); filled.push("60-ft: " + Math.min(...ft).toFixed(3)); }
+  }
+  const etCandidates = times.filter(v => v >= 3.0 && v <= 25);
+  if (etCandidates.length >= 2) {
+    const sorted = etCandidates.slice().sort((a, b) => b - a);
+    if (!get("run_et14").value) { get("run_et14").value = sorted[0].toFixed(3); filled.push("1/4 ET: " + sorted[0].toFixed(3)); }
+    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("1/8 ET: " + sorted[1].toFixed(3)); }
+  } else if (etCandidates.length === 1) {
+    const v = etCandidates[0];
+    if (!get("run_et14").value && v >= 9) { get("run_et14").value = v.toFixed(3); filled.push("1/4 ET: " + v.toFixed(3)); }
+    else if (!get("run_et18").value && v < 9) { get("run_et18").value = v.toFixed(3); filled.push("1/8 ET: " + v.toFixed(3)); }
+  }
+  if (!get("run_mph").value && speeds.length) {
+    const mph = Math.max(...speeds);
+    get("run_mph").value = mph.toFixed(1);
+    filled.push("Trap speed: " + mph.toFixed(1));
+  }
+  if (runPhotoMeta) {
+    if (filled.length || true) { get("run_date").value = runPhotoMeta.date; get("run_time").value = runPhotoMeta.time; }
+    filled.push("Date/time from photo: " + runPhotoMeta.date + " " + runPhotoMeta.time);
+  }
+  return filled;
 }
 
 function showRunPhoto() {
   const prev = get("run_photo_preview");
   const rm = get("run_photo_remove");
+  const sc = get("run_photo_scan");
   if (runPhotoData) {
     prev.src = runPhotoData;
     prev.style.display = "";
     rm.style.display = "";
+    sc.style.display = "";
   } else {
     prev.style.display = "none";
     rm.style.display = "none";
+    sc.style.display = "none";
   }
 }
 
 function clearRunPhoto() {
   runPhotoData = null;
+  runPhotoMeta = null;
   showRunPhoto();
 }
 
@@ -1508,6 +1644,7 @@ function saveRun() {
     }
   });
   if (runPhotoData) run.photo = runPhotoData;
+  if (runPhotoMeta) run.photo_meta = runPhotoMeta;
   if (editingRunIndex !== null && vehicleRuns[editingRunIndex]) {
     run.settings_snapshot = snapshot;
     vehicleRuns[editingRunIndex] = run;
