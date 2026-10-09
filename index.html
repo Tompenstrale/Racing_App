@@ -166,6 +166,16 @@
   .detail-history { margin-top: 10px; color: var(--muted); font-size: 0.8rem; }
   .btn-sm { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
   .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .pred-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+  }
+  .pred-grid .pred-box {
+    background: var(--card2); border: 1px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; text-align: center;
+  }
+  .pred-grid .pred-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .pred-grid .pred-value { font-size: 1.45rem; font-weight: 700; color: var(--text); }
+  .pred-grid .pred-sub { font-size: 0.72rem; color: var(--muted); }
   .weather-hero {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
   }
@@ -689,8 +699,12 @@
       </div>
     </div>
     <div class="meta" id="pred_weather_full" style="margin:0 0 10px 0"></div>
-    <div class="dash-top" id="predNow">Fetching weather…</div>
+    <div class="pred-grid" id="predGrid" style="margin:0 0 10px 0"></div>
+    <div class="dash-top" id="predNow" style="display:none"></div>
     <div class="meta" id="predNowMeta" style="margin-top:0"></div>
+    <div class="btnrow" style="margin-top:12px">
+      <button onclick="refreshPredWeather()">🔄 Update weather & prediction</button>
+    </div>
   </div>
 
   <div class="card">
@@ -1966,32 +1980,41 @@ function renderPredNow(w) {
     { key: "et18", label: "201 m (1/8)", wind: 0.007 },
     { key: "et14", label: "402 m (1/4)", wind: 0.010 }
   ];
-  let rows = "";
+  const grid = get("predGrid");
+  let boxes = "";
   let any = false;
   dists.forEach(d => {
     const r = predictForDistance(d.key, w, d.wind);
     if (r) {
       any = true;
-      rows += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--border)">
-        <span>${d.label} <span class="muted" style="font-size:.75rem">(${r.n} runs)</span></span>
-        <strong style="font-size:1.15rem">${r.pred.toFixed(3)}s</strong>
+      boxes += `<div class="pred-box">
+        <div class="pred-label">${d.label}</div>
+        <div class="pred-value">${r.pred.toFixed(3)}s</div>
+        <div class="pred-sub">${r.n} runs</div>
+      </div>`;
+    } else {
+      boxes += `<div class="pred-box" style="opacity:.45">
+        <div class="pred-label">${d.label}</div>
+        <div class="pred-value">–</div>
+        <div class="pred-sub">no data</div>
       </div>`;
     }
   });
+  if (grid) grid.innerHTML = boxes;
   if (!any) {
-    el.innerHTML = `<span class="dash-num warn">No history yet</span> – log runs with ET and weather to get a prediction.`;
-    meta.textContent = `${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
+    meta.textContent = `No history yet – log runs with ET and weather to get a prediction. ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
     return;
   }
   const hw = w.headwind;
-  const daTxt = w.densityAlt !== null && w.densityAlt !== undefined ? "Density altitude: " + w.densityAlt + " ft" : "";
-  el.innerHTML = `Predicted ET in current weather:
-  <div style="margin-top:6px">${rows}</div>${hw !== null && hw !== undefined && !isNaN(hw) ? "<span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", wind from " + (w.windDir ?? "?") + "\u00b0)</span>" : ""}${daTxt ? "<br><span class='muted' style='font-size:.85rem'>" + daTxt + "</span>" : ""}`;
-  meta.textContent = `Temp adjustment vs history: ${((parseFloat(w.temp) - (predictForDistance("et14", w, 0) || predictForDistance("et18", w, 0) || { avgTemp: parseFloat(w.temp) }).avgTemp)).toFixed(1)}\u00b0C${daTxt ? " · " + daTxt : ""} · ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}`;
+  const base = predictForDistance("et14", w, 0) || predictForDistance("et18", w, 0) || predictForDistance("et100", w, 0) || predictForDistance("ft60", w, 0);
+  const daTxt = w.densityAlt !== null && w.densityAlt !== undefined ? "DA " + w.densityAlt + " ft" : "";
+  const tempAdj = base ? `${((parseFloat(w.temp) - base.avgTemp)).toFixed(1)}\u00b0C vs history` : "";
+  meta.textContent = [tempAdj, daTxt, `${w.temp}\u00b0C · wind ${w.wind} m/s · ${w.cond}`, (w.track || "")].filter(Boolean).join(" · ");
 }
 
 function refreshPredWeather() {
-  get("predNow").innerHTML = "Fetching weather…";
+  const grid = get("predGrid");
+  if (grid) grid.innerHTML = `<div class="pred-box" style="grid-column:1/-1"><div class="pred-value" style="font-size:1rem;color:var(--muted)">🔄 Fetching weather…</div></div>`;
   fetchWeatherFor("pred");
 }
 
