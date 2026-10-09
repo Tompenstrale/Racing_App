@@ -1617,10 +1617,10 @@ function fetchWeatherFor(prefix) {
 }
 
 /* --- Historiskt väder: Open-Meteo archive-API, timupplöst, från 2022 --- */
-function fetchHistoricalWeather() {
+function fetchHistoricalWeather(silent) {
   const date = get("run_date").value;
   const time = get("run_time").value || "12:00";
-  if (!date) { alert("Enter a date first."); return; }
+  if (!date) { if (!silent) alert("Enter a date first."); return; }
   const trackEl = get("run_track");
   const track = trackByName(trackEl ? trackEl.value : DEFAULT_TRACK);
   const hour = parseInt(time.slice(0, 2)) || 12;
@@ -1674,7 +1674,7 @@ function fetchHistoricalWeather() {
     })
     .catch(e => {
       if (statusEl) statusEl.textContent = "";
-      alert("Could not fetch historical weather: " + e.message + "\nNote: archive data starts from 2022 and needs internet.");
+      if (!silent) alert("Could not fetch historical weather: " + e.message + "\nNote: archive data starts from 2022 and needs internet.");
     });
 }
 
@@ -1870,6 +1870,27 @@ function clearRunPhoto() {
   runPhotoData = null;
   runPhotoMeta = null;
   showRunPhoto();
+}
+
+/* Auto-uppdatera väder när datum/tid ändras i run-formuläret */
+function autoWeatherForRun() {
+  const date = get("run_date").value;
+  if (!date) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const el = get("run_weather_full");
+  const markWeather = (txt) => { if (el) el.dataset.autofetched = txt; };
+  if (date === today) {
+    // Idag = aktuellt väder gäller
+    fetchWeatherFor("run");
+    markWeather("current");
+  } else if (date > today || date < "2022-01-01") {
+    // Framtida datum eller före arkivet: hämta inte, men visa tydligt
+    if (el) el.textContent = "⚠ Weather not available for " + date + (date > today ? " (future date)" : " (archive starts 2022)");
+  } else {
+    // Historiskt datum: hämta arkivväder tyst
+    fetchHistoricalWeather(true);
+    markWeather("historical");
+  }
 }
 
 function saveRun() {
@@ -2757,6 +2778,11 @@ function clearAll() {
   } else load({});
 }
 
+get("run_date").addEventListener("change", autoWeatherForRun);
+get("run_time").addEventListener("change", () => {
+  const d = get("run_date").value;
+  if (d && d < new Date().toISOString().slice(0,10) && d >= "2022-01-01") fetchHistoricalWeather(true);
+});
 FIELDS.forEach(f => {
   const el = get(f);
   if (!el) return;
