@@ -646,10 +646,8 @@
     <div class="btnrow" style="margin-top:0">
       <button onclick="openRunModal()">+ Log individual run (times + weather + settings)</button>
     </div>
-    <div class="addrow" style="grid-template-columns: 1fr 1fr auto; margin-top:14px; margin-bottom:0">
-      <div class="grp"><label>Date (bulk)</label><input id="race_date" type="date"></div>
-      <div class="grp"><label>Number of runs without times</label><input id="race_count" type="number" min="1" value="1"></div>
-      <button class="ghost" onclick="logRace()">Log count only</button>
+    <div class="btnrow" style="margin-top:10px">
+      <button class="ghost" onclick="logPlainRun()">+ Log run without time slip (counts for service needs)</button>
     </div>
     <div class="meta" id="raceLog"></div>
   </div>
@@ -2467,13 +2465,27 @@ function confirmService() {
 }
 
 /* ---- Racelog ---- */
-function logRace() {
-  const date = get("race_date").value || new Date().toISOString().slice(0,10);
-  const count = parseInt(get("race_count").value) || 1;
-  raceLog.unshift({ date, count });
-  parts.forEach(p => p.races += count);
-  get("race_date").value = "";
-  get("race_count").value = "1";
+function logPlainRun() {
+  const today = new Date().toISOString().slice(0,10);
+  const now = new Date().toTimeString().slice(0,5);
+  const run = {
+    date: today,
+    time: now,
+    track: lastTrack() || DEFAULT_TRACK,
+    weather_source: "none",
+    dial_in: null, delay_box: null, rt: null,
+    ft60: null, et100: null, et18: null, et14: null,
+    mph: null, mph18: null,
+    include_in_pred: false,
+    settings_snapshot: {},
+    weather: { temp: null, wind: null, winddir: null, headwind: null, hum: null, cond: null, pressure: null, densityAlt: null },
+    plain: true
+  };
+  vehicleRuns.unshift(run);
+  parts.forEach(p => p.races += 1);
+  raceLog.unshift({ date: today, count: 1 });
+  save(true);
+  renderRuns();
   renderParts();
   renderRaceLog();
   renderDashboard();
