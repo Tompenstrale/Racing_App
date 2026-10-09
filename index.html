@@ -205,6 +205,7 @@
     <span class="card-head-right">
       <select id="vehicleSelect" onclick="event.stopPropagation()" onchange="switchVehicle(this.value)" title="Select vehicle"></select>
       <button class="btn-sm" onclick="event.stopPropagation(); newVehicle()">+ New</button>
+      <button class="btn-sm" style="color:var(--ok);font-weight:bold" onclick="event.stopPropagation(); saveVehicleButton()" title="Save current vehicle">💾 Save</button>
       <button class="btn-sm" style="color:var(--danger)" onclick="event.stopPropagation(); deleteVehicle()" title="Delete current vehicle">🗑</button>
       <span class="chev">▼</span>
     </span>
@@ -720,9 +721,13 @@ function renderAlerts() {
 function save(silent) {
   const data = {};
   FIELDS.forEach(f => data[f] = f === "active" ? get(f).checked : get(f).value);
-  if (!data.name || !data.sfi_tag || !data.chassis_number) {
-    if (!silent) alert("Name, SFI tag number and chassis number are required.");
+  if (!data.name) {
+    if (!silent) alert("Name is required.");
     return;
+  }
+  if (!data.sfi_tag || !data.chassis_number) {
+    data._incomplete = true;
+    if (!silent) alert("Saved (incomplete): fill in SFI tag number and chassis number before tech inspection.");
   }
   data.parts = parts;
   data.race_log = raceLog;
@@ -747,6 +752,14 @@ function save(silent) {
   get("headerName").textContent = data.name + (data.race_number ? " #" + data.race_number : "");
   updateIdentName();
   if (!silent) renderAlerts();
+}
+
+function saveVehicleButton() {
+  save(false);
+  const el = get("identName");
+  const orig = el.textContent;
+  el.textContent = "✓ " + orig;
+  setTimeout(() => { el.textContent = get("name").value || "New vehicle"; }, 1500);
 }
 
 /* ---- Motor: interna delar & setup ---- */
@@ -1232,6 +1245,7 @@ window.addEventListener("message", function(ev) {
 
 /* ---- Vy-växlare & Förutsägelse-panel ---- */
 function showView(v) {
+  if (typeof vehiclesAutosaved === "undefined") { save(true); }
   get("viewGarage").style.display = v === "garage" ? "" : "none";
   get("viewRuns").style.display = v === "runs" ? "" : "none";
   get("viewData").style.display = v === "data" ? "" : "none";
@@ -2478,6 +2492,7 @@ function clearAll() {
 FIELDS.filter(f => ["inspection_valid_until","insurance_valid_until","next_service_date"].includes(f))
   .forEach(f => get(f).addEventListener("change", renderAlerts));
 get("name").addEventListener("input", updateIdentName);
+window.addEventListener("beforeunload", () => { try { save(true); } catch(e) {} });
 
 let vehicles = readVehicles();
 let activeId = localStorage.getItem(LS_ACTIVE);
