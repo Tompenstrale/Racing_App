@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RacingApp – Garage & Prediction</title>
+<style>
+  :root {
+    --bg: #111418;
+    --card: #1b2027;
+    --card2: #232a33;
+    --border: #333c47;
+    --text: #e8ecf1;
+    --muted: #93a1b0;
+    --accent: #f5c518;
+    --ok: #3ecf8e;
+    --warn: #f0a500;
+    --danger: #ff5c5c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  h1 .num { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+  .alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .alert {
+    padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .alert.warn  { background: rgba(240,165,0,.12); border: 1px solid var(--warn); }
+  .alert.danger{ background: rgba(255,92,92,.12); border: 1px solid var(--danger); }
+  .alert.ok    { background: rgba(62,207,142,.10); border: 1px solid var(--ok); }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1rem; margin-bottom: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .field input, .field select, .field textarea {
+    background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 8px 10px; font-size: 0.9rem; width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: 1px solid var(--accent); }
+  .field.req input { border-color: #6b5a10; }
+  .wide { grid-column: 1 / -1; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .btnrow { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #111; border: none; border-radius: 8px;
+    padding: 10px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button:hover { filter: brightness(1.1); }
+  .meta { color: var(--muted); font-size: 0.8rem; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .pill.ok { background: rgba(62,207,142,.12); color: var(--ok); border: 1px solid var(--ok); }
+  .pill.warn { background: rgba(240,165,0,.12); color: var(--warn); border: 1px solid var(--warn); }
+  .pill.danger { background: rgba(255,92,92,.12); color: var(--danger); border: 1px solid var(--danger); }
+  .del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+  .addrow { display: grid; grid-template-columns: 1.4fr 1fr .6fr .6fr .6fr .8fr auto; gap: 8px; margin-bottom: 14px; }
+  .addrow input, .addrow select { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 8px; font-size: 0.85rem; width: 100%; }
+  .addrow .grp { display: flex; flex-direction: column; gap: 2px; }
+  .addrow .grp label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
+  .addrow button { white-space: nowrap; }
+  .racebtn { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 0.8rem; }
+  .racebtn:hover { border-color: var(--accent); color: var(--accent); }
+  @media (max-width: 800px) { .addrow { grid-template-columns: 1fr 1fr; } }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 10; }
+  .modal.open { display: flex; }
+  .modal .inner { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; width: min(420px, 90vw); }
+  .modal h3 { margin-bottom: 14px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal .btnrow { margin-top: 6px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { background: var(--card2); color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 7px 16px; cursor: pointer; font-size: 0.85rem; }
+  .tab.active { background: var(--accent); color: #111; font-weight: 600; }
+  .spec-mini { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; }
+  .spec-mini b { color: var(--text); }
+  .addrow.spec { grid-template-columns: 1.3fr .9fr .6fr .6fr .6fr .8fr auto; }
+  .addrow.setup { grid-template-columns: 1.2fr .7fr 1.1fr auto; }
+  .muted { color: var(--muted); }
+  .spec-group { margin-top: 18px; }
+  .spec-group h3 {
+    font-size: 0.85rem; color: var(--text); text-transform: uppercase;
+    letter-spacing: .05em; border-bottom: 1px solid var(--border);
+    padding-bottom: 6px; margin-bottom: 8px;
+  }
+  .spec-group h3 .count { color: var(--muted); font-weight: 400; text-transform: none; }
+  .dash-top { font-size: 1rem; margin-bottom: 14px; line-height: 1.6; }
+  .viewnav {
+    display: flex; gap: 8px; margin-bottom: 20px;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg); padding: 10px 0;
+  }
+  .viewbtn {
+    background: var(--card); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  }
+  .viewbtn.active { border-color: var(--accent); color: var(--accent); background: rgba(245,197,24,.08); }
+  .secnav {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 20px;
+  }
+  .secbtn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 12px 8px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .secbtn.active { border-color: var(--accent); color: var(--accent); background: rgba(245,197,24,.08); }
+  @media (max-width: 600px) {
+    .secnav { grid-template-columns: repeat(2, 1fr); }
+  }
+  .card.collapsible { padding-bottom: 0; }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none; padding: 20px;
+    margin: -20px -20px 0 -20px;
+  }
+  .card-head h2 { margin-bottom: 0; }
+  .card-head-right { display: flex; align-items: center; gap: 8px; }
+  .card-head-right select {
+    background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 6px 8px; font-size: 0.85rem; max-width: 160px;
+  }
+  .card-head .chev { color: var(--muted); font-size: 0.9rem; transition: transform .15s; }
+  .card.collapsed .card-head { border-bottom: none; }
+  .card.collapsed .card-body { display: none; }
+  .card.collapsed { padding-bottom: 20px; }
+  .card-body { padding-top: 16px; }
+  .card-body.hidden { display: none; }
+  .traffic { display: inline-flex; gap: 5px; align-items: center; }
+  .traffic .dot { width: 11px; height: 11px; border-radius: 50%; background: #333; }
+  .traffic .dot.on-ok { background: var(--ok); }
+  .traffic .dot.on-warn { background: var(--warn); }
+  .traffic .dot.on-danger { background: var(--danger); }
+  .part-row-details { background: var(--card2); }
+  .part-row-details td { padding: 12px 14px; font-size: 0.88rem; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; }
+  .detail-grid .dl { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; }
+  .detail-grid .dv { font-size: 0.9rem; }
+  .partrow { cursor: pointer; }
+  .partrow:hover { background: rgba(245,197,24,.05); }
+  .detail-history { margin-top: 10px; color: var(--muted); font-size: 0.8rem; }
+  .btn-sm { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .dash-num { font-size: 1.5rem; font-weight: 700; }
+  .dash-num.ok { color: var(--ok); }
+  .dash-num.warn { color: var(--warn); }
+  .dash-num.danger { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="viewnav">
+  <button class="viewbtn active" id="viewbtn-garage" onclick="showView('garage')">🔧 Garage</button>
+  <button class="viewbtn" id="viewbtn-runs" onclick="showView('runs')">⏱ Runs</button>
+  <button class="viewbtn" id="viewbtn-pred" onclick="showView('pred')">📊 Prediction</button>
+</div>
+
+<div id="viewGarage">
+<h1>🏁 RacingApp – <span class="num" id="headerName">New vehicle</span></h1>
+<div class="subtitle">Vehicle data card · identification, inspection and status</div>
+
+<div class="card" id="dashboardCard">
+  <h2>Dashboard – next race weekend</h2>
+  <div class="dash-top" id="dashTop"></div>
+  <table>
+    <thead><tr><th>Part</th><th>Runs left</th><th>Days left</th><th>Status</th></tr></thead>
+    <tbody id="dashBody"></tbody>
+  </table>
+  <div class="meta" id="dashMeta"></div>
+</div>
+
+<div class="alerts" id="alerts"></div>
+
+
+<div class="card collapsible collapsed" id="cardIdent">
+  <div class="card-head" onclick="toggleCard('cardIdent')">
+    <h2><span id="identName">New vehicle</span></h2>
+    <span class="card-head-right">
+      <select id="vehicleSelect" onclick="event.stopPropagation()" onchange="switchVehicle(this.value)" title="Select vehicle"></select>
+      <button class="btn-sm" onclick="event.stopPropagation(); newVehicle()">+ New</button>
+      <button class="btn-sm" style="color:var(--danger)" onclick="event.stopPropagation(); deleteVehicle()" title="Delete current vehicle">🗑</button>
+      <span class="chev">▼</span>
+    </span>
+  </div>
+  <div class="card-body">
+  <div class="grid">
+    <div class="field req"><label>Name/Alias *</label><input id="name" placeholder="Rocket #12"></div>
+    <div class="field req"><label>SFI tag number *</label><input id="sfi_tag" placeholder="SFI-2025-04567"></div>
+    <div class="field req"><label>Chassis number *</label><input id="chassis_number" placeholder="WP0ZZZ95ZGN812345"></div>
+    <div class="field req"><label>Manufacturer *</label>
+      <select id="manufacturer">
+        <option value="">– Select –</option>
+        <option>Porsche</option><option>BMW</option><option>Volvo</option><option>Saab</option>
+        <option>Ford</option><option>Opel</option><option>Toyota</option><option>Mazda</option>
+        <option>Renault</option><option>VW</option><option>Audi</option><option>Mercedes</option>
+        <option>Custom build</option><option>Other</option>
+      </select>
+    </div>
+    <div class="field req"><label>Model *</label><input id="model" placeholder="944 Turbo"></div>
+    <div class="field"><label>Year</label><input id="year" type="number" placeholder="1986"></div>
+    <div class="field"><label>Class/Group</label><input id="race_class" placeholder="Class 6 RWD"></div>
+    <div class="field"><label>Race number</label><input id="race_number" type="number"></div>
+    <div class="field"><label>Color/Livery</label><input id="color" placeholder="Svart/gul"></div>
+    <div class="field"><label>Transponder ID</label><input id="transponder_id" placeholder="TR-774213"></div>
+    <div class="field"><label>Team/Owner</label><input id="team" placeholder="Team AB"></div>
+  </div>
+  </div>
+</div>
+
+<div class="secnav" id="secNav">
+  <button class="secbtn active" id="secbtn-engine" onclick="showSection('engine')">
+    <span class="traffic" id="trafficEngine"></span> Engine
+  </button>
+  <button class="secbtn" id="secbtn-trans" onclick="showSection('trans')">
+    <span class="traffic" id="trafficTrans"></span> Transmission
+  </button>
+  <button class="secbtn" id="secbtn-axle" onclick="showSection('axle')">
+    <span class="traffic" id="trafficAxle"></span> Rear axle
+  </button>
+  <button class="secbtn" id="secbtn-fourlink" onclick="showSection('fourlink')">
+    <span class="traffic" id="trafficFourlink"></span> 4-link
+  </button>
+</div>
+
+<div class="card sectioncard" id="cardEngine">
+  <h2>Engine</h2>
+  <div class="grid">
+    <div class="field req"><label>Engine code/type *</label><input id="engine" placeholder="M44/52 turbo"></div>
+    <div class="field"><label>Displacement (cc)</label><input id="eng_cc" type="number" placeholder="2479"></div>
+    <div class="field"><label>Cylinders</label><input id="eng_cyl" type="number" placeholder="4"></div>
+    <div class="field"><label>Fuel</label><input id="eng_fuel" placeholder="Race-gas 102 OKT"></div>
+    <div class="field"><label>Induction (turbo/blower)</label><input id="eng_ind" placeholder="Turbo K26, 1.2 bar"></div>
+    <div class="field"><label>Compression</label><input id="eng_comp" placeholder="8.5:1"></div>
+    <div class="field"><label>Ignition system</label><input id="eng_ign" placeholder="MSD 6AL + kill switch"></div>
+    <div class="field"><label>Power (hp)</label><input id="eng_hp" type="number" placeholder="450"></div>
+    <div class="field"><label>Oil system</label><input id="eng_oil" placeholder="Torrtorrlager + Accusump"></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabSpec" onclick="showTab('spec')">Internal parts, measurements & tolerances</div>
+    <div class="tab" id="tabSetup" onclick="showTab('setup')">Baseline settings</div>
+  </div>
+
+  <div id="paneSpec">
+    <div class="addrow spec">
+      <div class="grp"><label>Engine section *</label>
+        <select id="sp_group">
+          <option>Bottom end</option>
+          <option>Cylinder head</option>
+          <option>Intake</option>
+          <option>Exhaust</option>
+          <option>Boost/Forced induction</option>
+          <option>Ignition/Control system</option>
+        </select>
+      </div>
+      <div class="grp"><label>Internal part *</label><input id="sp_name" placeholder="Vevstake nr 3"></div>
+      <div class="grp"><label>Measurement</label><input id="sp_dim" placeholder="Diameter vevtappe 55.02 mm"></div>
+      <div class="grp"><label>Measured value</label><input id="sp_val" type="number" step="0.01" placeholder="55.02"></div>
+      <div class="grp"><label>Min</label><input id="sp_min" type="number" step="0.01" placeholder="54.98"></div>
+      <div class="grp"><label>Max</label><input id="sp_max" type="number" step="0.01" placeholder="55.05"></div>
+      <div class="grp"><label>Unit</label>
+        <select id="sp_unit"><option>mm</option><option>inch</option><option>bar</option><option>psi</option><option>°</option><option>g</option></select>
+      </div>
+      <button onclick="addSpec()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Part</th><th>Measurement</th><th>Value</th><th>Tolerance</th><th>Status</th><th></th></tr></thead>
+      <tbody id="specBody"></tbody>
+    </table>
+  </div>
+
+  <div id="paneSetup" style="display:none">
+    <div class="addrow setup">
+      <div class="grp"><label>Engine section *</label>
+        <select id="se_group">
+          <option>Bottom end</option>
+          <option>Cylinder head</option>
+          <option>Intake</option>
+          <option>Exhaust</option>
+          <option>Boost/Forced induction</option>
+          <option>Ignition/Control system</option>
+        </select>
+      </div>
+      <div class="grp"><label>Setting *</label><input id="se_name" placeholder="Ventilspel intake"></div>
+      <div class="grp"><label>Value</label><input id="se_val" placeholder="0.25 mm varm"></div>
+      <div class="grp"><label>Note</label><input id="se_note" placeholder="Ställs med kamaxel på säkerhetsläge"></div>
+      <button onclick="addSetup()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th><th>Note</th><th></th></tr></thead>
+      <tbody id="setupBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card sectioncard" id="cardTrans" style="display:none">
+  <h2>Transmission</h2>
+  <div class="grid">
+    <div class="field req"><label>Transmission code/type *</label><input id="tr_model" placeholder="Getrag 265 / Powerglide"></div>
+    <div class="field req"><label>Transmission type *</label>
+      <select id="tr_type" onchange="onTransTypeChange()">
+        <option value="">– Select –</option>
+        <option value="manual">Manual</option>
+        <option value="automatic">Automatic</option>
+      </select>
+    </div>
+    <div class="field"><label>Number of gears</label><input id="tr_gears" type="number" placeholder="5"></div>
+    <div class="field"><label>Rear axle ratio</label><input id="tr_ratio" placeholder="3.91"></div>
+    <div class="field"><label>Driver control</label><input id="tr_shifter" placeholder="H-pattern / rakt styrvrår"></div>
+    <div class="field"><label>Electronics (ECU/TCU)</label><input id="tr_ecu" placeholder="Ingen / halvautomatisk TCU"></div>
+    <div class="field"><label>Oil (type)</label><input id="tr_oil" placeholder="ATF Dexron VI / 75W-140"></div>
+    <div class="field"><label>Note</label><input id="tr_note" placeholder="t.ex. byggd diff-spärr"></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabTspec" onclick="showTTab('tspec')">Measurements & tolerances</div>
+    <div class="tab" id="tabTsetup" onclick="showTTab('tsetup')">Baseline settings & electronics</div>
+  </div>
+
+  <div id="paneTspec">
+    <div class="addrow spec">
+      <div class="grp"><label>Sektion *</label>
+        <select id="tsp_group"></select>
+      </div>
+      <div class="grp"><label>Part *</label><input id="tsp_name" placeholder="Synkronring 3:e växeln"></div>
+      <div class="grp"><label>Measurement</label><input id="tsp_dim" placeholder="Spel synkronring"></div>
+      <div class="grp"><label>Measured value</label><input id="tsp_val" type="number" step="0.01"></div>
+      <div class="grp"><label>Min</label><input id="tsp_min" type="number" step="0.01"></div>
+      <div class="grp"><label>Max</label><input id="tsp_max" type="number" step="0.01"></div>
+      <div class="grp"><label>Unit</label>
+        <select id="tsp_unit"><option>mm</option><option>inch</option><option>bar</option><option>psi</option><option>°</option><option>Nm</option></select>
+      </div>
+      <button onclick="addTSpec()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Part</th><th>Measurement</th><th>Value</th><th>Tolerance</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tspecBody"></tbody>
+    </table>
+  </div>
+
+  <div id="paneTsetup" style="display:none">
+    <div class="addrow setup">
+      <div class="grp"><label>Sektion *</label>
+        <select id="tse_group"></select>
+      </div>
+      <div class="grp"><label>Setting *</label><input id="tse_name" placeholder="Lintryck koppling"></div>
+      <div class="grp"><label>Value</label><input id="tse_val" placeholder="10 bar vid 2000 rpm"></div>
+      <div class="grp"><label>Note</label><input id="tse_note" placeholder="Referens tryckmätpunkt"></div>
+      <button onclick="addTSetup()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th><th>Note</th><th></th></tr></thead>
+      <tbody id="tsetupBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card sectioncard" id="cardAxle" style="display:none">
+  <h2>Rear axle & final drive</h2>
+  <div class="grid">
+    <div class="field"><label>Model/designation</label><input id="ax_model" placeholder="Ford 9-inch"></div>
+    <div class="field"><label>Final drive ratio</label><input id="ax_ratio" placeholder="4.11"></div>
+    <div class="field"><label>Ring/pinion (teeth)</label><input id="ax_pinion" placeholder="41/10"></div>
+    <div class="field"><label>Diff type</label><input id="ax_diff" placeholder="Locker/LSD 75%"></div>
+    <div class="field"><label>Oil + additive</label><input id="ax_oil" placeholder="75W-140 + friction modifier"></div>
+    <div class="field"><label>Note</label><input id="ax_note" placeholder="t.ex. nytt drev monterat 2026-08"></div>
+  </div>
+
+  <div class="tabs" style="margin-top:16px">
+    <div class="tab active" id="tabAspec" onclick="showATab('aspec')">Bearings & components – measurements & tolerances</div>
+  </div>
+  <div id="paneAspec">
+    <div class="addrow spec">
+      <div class="grp"><label>Sektion *</label>
+        <select id="asp_group">
+          <option>Ring & pinion</option>
+          <option>Bearings</option>
+          <option>Differential</option>
+          <option>Housing & seals</option>
+        </select>
+      </div>
+      <div class="grp"><label>Part *</label><input id="asp_name" placeholder="Pinion depth"></div>
+      <div class="grp"><label>Measurement</label><input id="asp_dim" placeholder="Djup pinion"></div>
+      <div class="grp"><label>Measured value</label><input id="asp_val" type="number" step="0.01"></div>
+      <div class="grp"><label>Min</label><input id="asp_min" type="number" step="0.01"></div>
+      <div class="grp"><label>Max</label><input id="asp_max" type="number" step="0.01"></div>
+      <div class="grp"><label>Unit</label>
+        <select id="asp_unit"><option>mm</option><option>inch</option><option>Nm</option><option>°</option><option>lb/in</option></select>
+      </div>
+      <button onclick="addASpec()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Part</th><th>Measurement</th><th>Value</th><th>Tolerance</th><th>Status</th><th></th></tr></thead>
+      <tbody id="aspecBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card sectioncard" id="cardFourlink" style="display:none">
+  <h2>4-link suspension</h2>
+  <div class="grid">
+    <div class="field"><label>Typ</label><input id="fl_type" placeholder="4-link, dubla övre barer"></div>
+    <div class="field"><label>Bars, material</label><input id="fl_bars" placeholder="Stål, justerbara ändläger"></div>
+    <div class="field"><label>Front mounting blocks</label><input id="fl_chassis" placeholder="Höjd chassifästen 3 lägen"></div>
+    <div class="field"><label>Axle mounts</label><input id="fl_axle" placeholder="Undre: bottenläge"></div>
+  </div>
+
+  <div class="tabs" style="margin-top:16px">
+    <div class="tab active" id="tabFsetup" onclick="showFTab('fsetup')">Settings</div>
+  </div>
+  <div id="paneFsetup">
+    <div class="addrow setup">
+      <div class="grp"><label>Sektion *</label>
+        <select id="fse_group">
+          <option>Bars & placement</option>
+          <option>Instant Center & antisquat</option>
+          <option>Ride height & springs</option>
+          <option>Shocks</option>
+        </select>
+      </div>
+      <div class="grp"><label>Setting *</label><input id="fse_name" placeholder="Nedre barer längd"></div>
+      <div class="grp"><label>Value</label><input id="fse_val" placeholder="22.5 tum hål 2"></div>
+      <div class="grp"><label>Note</label><input id="fse_note" placeholder="Baseline, bra hook på slicks"></div>
+      <button onclick="addFSetup()">+ Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th><th>Note</th><th></th></tr></thead>
+      <tbody id="fsetupBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="cardSettings">
+  <h2>Tracked settings</h2>
+  <p class="meta" style="margin-top:0;margin-bottom:12px">Settings that the prediction view can read and update. Every change is saved with history.</p>
+  <div class="addrow setup" style="grid-template-columns: 1.4fr .8fr .6fr 1fr auto">
+    <div class="grp"><label>Key *</label><input id="st_key" placeholder="tire_pressure_rear"></div>
+    <div class="grp"><label>Name</label><input id="st_label" placeholder="Rear tire pressure"></div>
+    <div class="grp"><label>Value</label><input id="st_value" placeholder="1.4"></div>
+    <div class="grp"><label>Unit</label><input id="st_unit" placeholder="bar"></div>
+    <button onclick="addSettingRow()">+ Add</button>
+  </div>
+  <table>
+    <thead><tr><th>Setting</th><th>Current value</th><th>Last changed</th><th>History</th><th></th></tr></thead>
+    <tbody id="settingsBody"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Inspection & validity</h2>
+  <div class="grid">
+    <div class="field req"><label>Inspection date *</label><input id="inspection_date" type="date"></div>
+    <div class="field"><label>Inspection valid until</label><input id="inspection_valid_until" type="date"></div>
+    <div class="field"><label>Insurance valid until</label><input id="insurance_valid_until" type="date"></div>
+    <div class="field"><label>Next planned service</label><input id="next_service_date" type="date"></div>
+    <div class="field wide"><label>Status</label>
+      <div class="toggle"><input type="checkbox" id="active" checked> <span>Active (in use) – uncheck to archive the vehicle</span></div>
+    </div>
+    <div class="field wide"><label>Notes</label><textarea id="notes" rows="3" placeholder="Known quirks for tech inspection, service routines etc."></textarea></div>
+  </div>
+</div>
+
+<div class="card" id="cardParts">
+  <h2>Installed parts</h2>
+  <div class="addrow">
+    <div class="grp"><label>Part *</label><input id="p_name" placeholder="Bromsskivor fram"></div>
+    <div class="grp"><label>Category</label>
+      <select id="p_cat">
+        <option>Brakes</option><option>Motor</option><option>Transmission</option>
+        <option>Suspension</option><option>Tires</option><option>Wheels</option>
+        <option>Electrical/Electronics</option><option>Body</option><option>Driver/Safety</option><option>Other</option>
+      </select>
+    </div>
+    <div class="grp"><label>Runs since replacement</label><input id="p_races" type="number" min="0" value="0"></div>
+    <div class="grp"><label>Replace every (runs)</label><input id="p_int_races" type="number" min="1" placeholder="60"></div>
+    <div class="grp"><label>Replace every (days)</label><input id="p_int_days" type="number" min="1" placeholder="365"></div>
+    <div class="grp"><label>Last service</label><input id="p_last" type="date"></div>
+    <button onclick="addPart()">+ Add</button>
+  </div>
+  <table>
+    <thead><tr><th>Part</th><th>Status</th><th></th></tr></thead>
+    <tbody id="partsBody"></tbody>
+  </table>
+</div>
+
+<div class="btnrow">
+  <button onclick="save()">💾 Save</button>
+  <button class="ghost" onclick="exportBackup()">📤 Backup</button>
+  <button class="ghost" onclick="get('importFile').click()">📥 Restore</button>
+  <button class="ghost" onclick="loadDemo()">Load example</button>
+  <button class="ghost" onclick="clearAll()">Clear</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+
+<div class="modal" id="runModal">
+  <div class="inner" style="width:min(560px,95vw);max-height:90vh;overflow-y:auto">
+    <h3>⏱ Log run</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      <div class="field"><label>Date</label><input id="run_date" type="date"></div>
+      <div class="field"><label>Time</label><input id="run_time" type="time"></div>
+      <div class="field"><label>Track</label>
+        <select id="run_track" onchange="fillRunWeatherHint()"></select>
+      </div>
+      <div class="field"><label>60-ft (s)</label><input id="run_ft60" type="number" step="0.001"></div>
+      <div class="field"><label>1/8 ET (s)</label><input id="run_et18" type="number" step="0.001"></div>
+      <div class="field"><label>1/4 ET (s)</label><input id="run_et14" type="number" step="0.001"></div>
+      <div class="field"><label>Trap speed (km/h)</label><input id="run_mph" type="number" step="0.1"></div>
+    </div>
+    <h3 style="font-size:.9rem;margin:14px 0 8px">Weather</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">
+      <div class="field"><label>Temp (°C)</label><input id="run_temp" type="number" step="0.1"></div>
+      <div class="field"><label>Wind (m/s)</label><input id="run_wind" type="number" step="0.1"></div>
+      <div class="field"><label>Wind direction (°, from)</label><input id="run_winddir" type="number"></div>
+      <div class="field"><label>Humidity (%)</label><input id="run_hum" type="number"></div>
+      <div class="field"><label>Conditions</label><input id="run_cond" placeholder="Cloudy"></div>
+    </div>
+    <div class="meta" id="run_headwind" style="margin:8px 0 0"></div>
+    <button class="ghost" style="margin-top:8px" onclick="fetchWeatherFor('run')">📍 Fetch current weather</button>
+    <h3 style="font-size:.9rem;margin:14px 0 8px">Settings at time of run</h3>
+    <div id="runSettings"></div>
+    <div class="field" style="margin-top:12px">
+      <div class="toggle"><input type="checkbox" id="run_include" checked> <span>Include in prediction (uncheck if the run is not representative)</span></div>
+    </div>
+    <div class="btnrow">
+      <button id="runSaveBtn" onclick="saveRun()">Save run</button>
+      <button class="ghost" onclick="get('runModal').classList.remove('open')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="serviceModal">
+  <div class="inner">
+    <h3>Service performed – <span id="modalPartName"></span></h3>
+    <div class="field"><label>Datum</label><input id="service_date" type="date"></div>
+    <div class="field"><label>Anteckning</label><input id="service_note" placeholder="t.ex. bytte bromsskivor"></div>
+    <div class="btnrow">
+      <button onclick="confirmService()">Mark as serviced</button>
+      <button class="ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="meta">Saved locally in the browser (localStorage) – example data only.</div>
+</div>
+
+<div id="viewRuns" style="display:none">
+  <h1>⏱ Runs – <span class="num" id="runsVehicleName"></span></h1>
+  <div class="subtitle">All runs for the selected vehicle. Only runs marked "Include in prediction" are used in calculations.</div>
+
+  <div class="card">
+    <h2>Log a run</h2>
+    <div class="btnrow" style="margin-top:0">
+      <button onclick="openRunModal()">+ Log individual run (times + weather + settings)</button>
+    </div>
+    <div class="addrow" style="grid-template-columns: 1fr 1fr auto; margin-top:14px; margin-bottom:0">
+      <div class="grp"><label>Date (bulk)</label><input id="race_date" type="date"></div>
+      <div class="grp"><label>Number of runs without times</label><input id="race_count" type="number" min="1" value="1"></div>
+      <button class="ghost" onclick="logRace()">Log count only</button>
+    </div>
+    <div class="meta" id="raceLog"></div>
+  </div>
+
+  <div class="card">
+    <h2>Saved runs</h2>
+    <table>
+      <thead><tr><th>Date</th><th>ET</th><th>Pred.</th><th></th></tr></thead>
+      <tbody id="runsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="btnrow">
+    <button class="ghost" onclick="showView('garage')">← Back to garage</button>
+  </div>
+</div>
+
+<div id="viewPred" style="display:none">
+  <h1>📊 Prediction – körning just nu</h1>
+  <div class="subtitle">Prediction based on current weather and previous runs.</div>
+
+  <div class="card">
+    <h2>Prediction in current weather</h2>
+    <div class="dash-top" id="predNow">Fetching weather…</div>
+    <div class="meta" id="predNowMeta" style="margin-top:0"></div>
+  </div>
+
+  <div class="card">
+    <h2>Vehicle, track & settings</h2>
+    <div class="grid">
+      <div class="field"><label>Vehicle</label>
+        <select id="predVehicle" onchange="predRefresh()"></select>
+      </div>
+      <div class="field"><label>Track</label>
+        <select id="predTrack" onchange="refreshPredWeather()"></select>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Setting</th><th>Current value</th><th>Suggested value</th><th></th></tr></thead>
+      <tbody id="predBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Recommendation log</h2>
+    <div class="meta" id="predLog" style="margin-top:0">No changes made this session.</div>
+  </div>
+
+  <div class="btnrow">
+    <button class="ghost" onclick="showView('garage')">← Back to garage</button>
+  </div>
+</div>
+
+<script>
+const FIELDS = ["name","sfi_tag","chassis_number","manufacturer","model","year","race_class",
+  "race_number","color","engine","eng_cc","eng_cyl","eng_fuel","eng_ind","eng_comp",
+  "eng_ign","eng_hp","eng_oil","tr_model","tr_type","tr_gears","tr_ratio",
+  "tr_shifter","tr_ecu","tr_oil","tr_note",
+  "ax_model","ax_ratio","ax_pinion","ax_diff","ax_oil","ax_note",
+  "fl_type","fl_bars","fl_chassis","fl_axle",
+  "transponder_id","team","inspection_date",
+  "inspection_valid_until","insurance_valid_until","next_service_date","active","notes"];
+
+function get(id) { return document.getElementById(id); }
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  return Math.round((d - new Date().setHours(0,0,0,0)) / 86400000);
+}
+
+function renderAlerts() {
+  const box = get("alerts");
+  box.innerHTML = "";
+  const checks = [
+    ["inspection_valid_until", "Besiktningen"],
+    ["insurance_valid_until", "Försäkringen"],
+    ["next_service_date", "Planerad service"]
+  ];
+  for (const [id, label] of checks) {
+    const days = daysUntil(get(id).value);
+    if (days === null) continue;
+    let cls, txt;
+    if (days < 0)      { cls = "danger"; txt = `${label} har gått ut för ${Math.abs(days)} days sedan`; }
+    else if (days <= 30){ cls = "warn";  txt = `${label} går ut om ${days} days`; }
+    else               { cls = "ok";    txt = `${label} giltig i ${days} days till`; }
+    const el = document.createElement("div");
+    el.className = "alert " + cls;
+    el.innerHTML = `<span>${txt}</span><span>${get(id).value}</span>`;
+    box.appendChild(el);
+  }
+}
+
+function save(silent) {
+  const data = {};
+  FIELDS.forEach(f => data[f] = f === "active" ? get(f).checked : get(f).value);
+  if (!data.name || !data.sfi_tag || !data.chassis_number) {
+    if (!silent) alert("Name, SFI tag number and chassis number are required.");
+    return;
+  }
+  data.parts = parts;
+  data.race_log = raceLog;
+  data.engine_specs = engineSpecs;
+  data.engine_setups = engineSetups;
+  data.trans_specs = transSpecs;
+  data.trans_setups = transSetups;
+  data.axle_specs = axleSpecs;
+  data.fourlink_setups = fourLinkSetups;
+  data.settings = trackSettings;
+  data.runs = vehicleRuns;
+  let id = localStorage.getItem(LS_ACTIVE);
+  const vehicles = readVehicles();
+  if (!id || !vehicles[id]) {
+    id = "v" + Date.now();
+    localStorage.setItem(LS_ACTIVE, id);
+  }
+  vehicles[id] = data;
+  writeVehicles(vehicles);
+  renderVehicleSelect();
+  get("vehicleSelect").value = id;
+  get("headerName").textContent = data.name + (data.race_number ? " #" + data.race_number : "");
+  updateIdentName();
+  if (!silent) renderAlerts();
+}
+
+/* ---- Motor: interna delar & setup ---- */
+let engineSpecs = [];
+let engineSetups = [];
+let spTarget = null;
+
+function specStatus(sp) {
+  if (sp.val === null || sp.val === "" || sp.min === null || sp.max === null) return "na";
+  if (sp.val < sp.min || sp.val > sp.max) return "danger";
+  return "ok";
+}
+
+const ENGINE_GROUPS = ["Bottendel", "Topplock", "Insug", "Avgas", "Överladdning", "Styrsystem/Tändning"];
+
+function renderSpecs() {
+  const tb = get("specBody");
+  tb.innerHTML = "";
+  if (!engineSpecs.length) {
+    tb.innerHTML = "<tr><td colspan='6' style='color:var(--muted)'>No internal measurements registered.</td></tr>";
+    return;
+  }
+  ENGINE_GROUPS.forEach(grp => {
+    const rows = engineSpecs.map((sp, i) => ({ sp, i })).filter(x => (x.sp.group || "Bottendel") === grp);
+    if (!rows.length) return;
+    const groupTr = document.createElement("tr");
+    groupTr.innerHTML = `<td colspan='6' class='spec-group-header'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    groupTr.style.background = "var(--card2)";
+    tb.appendChild(groupTr);
+    rows.forEach(({ sp, i }) => {
+      const st = specStatus(sp);
+      const pill = st === "danger" ? "<span class='pill danger'>OUT OF TOLERANCE</span>"
+        : st === "ok" ? "<span class='pill ok'>IN TOLERANCE</span>"
+        : "<span class='pill warn'>SHOULD MEASURE</span>";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${sp.name}</strong></td>
+        <td>${sp.dim || ""}</td>
+        <td>${sp.val !== null && sp.val !== "" ? sp.val + " " + (sp.unit || "") : "–"}</td>
+        <td class="muted">${sp.min ?? "–"} – ${sp.max ?? "–"} ${sp.unit || ""}</td>
+        <td>${pill}</td>
+        <td><button class="del" onclick="removeSpec(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addSpec() {
+  const name = get("sp_name").value.trim();
+  if (!name) { alert("Enter part name."); return; }
+  engineSpecs.push({
+    name,
+    group: get("sp_group").value,
+    dim: get("sp_dim").value,
+    val: get("sp_val").value === "" ? null : parseFloat(get("sp_val").value),
+    min: get("sp_min").value === "" ? null : parseFloat(get("sp_min").value),
+    max: get("sp_max").value === "" ? null : parseFloat(get("sp_max").value),
+    unit: get("sp_unit").value
+  });
+  ["sp_name","sp_dim","sp_val","sp_min","sp_max"].forEach(f => get(f).value = "");
+  renderSpecs();
+}
+
+function removeSpec(i) { engineSpecs.splice(i, 1); renderSpecs(); }
+
+function renderSetups() {
+  const tb = get("setupBody");
+  tb.innerHTML = "";
+  if (!engineSetups.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No baseline settings registered.</td></tr>";
+    return;
+  }
+  ENGINE_GROUPS.forEach(grp => {
+    const rows = engineSetups.map((se, i) => ({ se, i })).filter(x => (x.se.group || "Bottendel") === grp);
+    if (!rows.length) return;
+    const groupTr = document.createElement("tr");
+    groupTr.innerHTML = `<td colspan='4' class='spec-group-header'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    groupTr.style.background = "var(--card2)";
+    tb.appendChild(groupTr);
+    rows.forEach(({ se, i }) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${se.name}</strong></td>
+        <td>${se.value || ""}</td>
+        <td class="muted">${se.note || ""}</td>
+        <td><button class="del" onclick="removeSetup(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addSetup() {
+  const name = get("se_name").value.trim();
+  if (!name) { alert("Enter setting."); return; }
+  engineSetups.push({ name, group: get("se_group").value, value: get("se_val").value, note: get("se_note").value });
+  ["se_name","se_val","se_note"].forEach(f => get(f).value = "");
+  renderSetups();
+}
+
+function removeSetup(i) { engineSetups.splice(i, 1); renderSetups(); }
+
+function showTab(t) {
+  get("paneSpec").style.display = t === "spec" ? "" : "none";
+  get("paneSetup").style.display = t === "setup" ? "" : "none";
+  get("tabSpec").classList.toggle("active", t === "spec");
+  get("tabSetup").classList.toggle("active", t === "setup");
+}
+
+/* ---- Transmission ---- */
+let transSpecs = [];
+let transSetups = [];
+let transType = "";
+
+const TRANS_GROUPS = {
+  manuell: ["Koppling", "Växelmekanism", "Diff/bakaxel", "Styrelektronik"],
+  automat: ["Torque converter", "Oljesystem/ventilkropp", "Växelmekanism", "Diff/bakaxel", "Styrelektronik"]
+};
+
+function transGroups() { return TRANS_GROUPS[transType] || TRANS_GROUPS.manuell; }
+
+function onTransTypeChange() {
+  transType = get("tr_type").value;
+  fillGroupSelects();
+  renderTSpecs();
+  renderTSetups();
+}
+
+function fillGroupSelects() {
+  const gs = transGroups();
+  ["tsp_group", "tse_group"].forEach(id => {
+    const sel = get(id);
+    sel.innerHTML = gs.map(g => `<option>${g}</option>`).join("");
+  });
+}
+
+function renderTSpecs() {
+  const tb = get("tspecBody");
+  tb.innerHTML = "";
+  if (!transSpecs.length) {
+    tb.innerHTML = "<tr><td colspan='6' style='color:var(--muted)'>No transmission measurements registered.</td></tr>";
+    return;
+  }
+  transGroups().forEach(grp => {
+    const rows = transSpecs.map((sp, i) => ({ sp, i })).filter(x => (x.sp.group || transGroups()[0]) === grp);
+    if (!rows.length) return;
+    const groupTr = document.createElement("tr");
+    groupTr.innerHTML = `<td colspan='6'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    groupTr.style.background = "var(--card2)";
+    tb.appendChild(groupTr);
+    rows.forEach(({ sp, i }) => {
+      const st = specStatus(sp);
+      const pill = st === "danger" ? "<span class='pill danger'>OUT OF TOLERANCE</span>"
+        : st === "ok" ? "<span class='pill ok'>IN TOLERANCE</span>"
+        : "<span class='pill warn'>SHOULD MEASURE</span>";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${sp.name}</strong></td>
+        <td>${sp.dim || ""}</td>
+        <td>${sp.val !== null && sp.val !== "" ? sp.val + " " + (sp.unit || "") : "–"}</td>
+        <td class="muted">${sp.min ?? "–"} – ${sp.max ?? "–"} ${sp.unit || ""}</td>
+        <td>${pill}</td>
+        <td><button class="del" onclick="removeTSpec(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addTSpec() {
+  const name = get("tsp_name").value.trim();
+  if (!name) { alert("Enter part name."); return; }
+  transSpecs.push({
+    name,
+    group: get("tsp_group").value,
+    dim: get("tsp_dim").value,
+    val: get("tsp_val").value === "" ? null : parseFloat(get("tsp_val").value),
+    min: get("tsp_min").value === "" ? null : parseFloat(get("tsp_min").value),
+    max: get("tsp_max").value === "" ? null : parseFloat(get("tsp_max").value),
+    unit: get("tsp_unit").value
+  });
+  ["tsp_name","tsp_dim","tsp_val","tsp_min","tsp_max"].forEach(f => get(f).value = "");
+  renderTSpecs();
+}
+
+function removeTSpec(i) { transSpecs.splice(i, 1); renderTSpecs(); }
+
+function renderTSetups() {
+  const tb = get("tsetupBody");
+  tb.innerHTML = "";
+  if (!transSetups.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No settings registered.</td></tr>";
+    return;
+  }
+  transGroups().forEach(grp => {
+    const rows = transSetups.map((se, i) => ({ se, i })).filter(x => (x.se.group || transGroups()[0]) === grp);
+    if (!rows.length) return;
+    const groupTr = document.createElement("tr");
+    groupTr.innerHTML = `<td colspan='4'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    groupTr.style.background = "var(--card2)";
+    tb.appendChild(groupTr);
+    rows.forEach(({ se, i }) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${se.name}</strong></td>
+        <td>${se.value || ""}</td>
+        <td class="muted">${se.note || ""}</td>
+        <td><button class="del" onclick="removeTSetup(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addTSetup() {
+  const name = get("tse_name").value.trim();
+  if (!name) { alert("Enter setting."); return; }
+  transSetups.push({ name, group: get("tse_group").value, value: get("tse_val").value, note: get("tse_note").value });
+  ["tse_name","tse_val","tse_note"].forEach(f => get(f).value = "");
+  renderTSetups();
+}
+
+function removeTSetup(i) { transSetups.splice(i, 1); renderTSetups(); }
+
+function showTTab(t) {
+  get("paneTspec").style.display = t === "tspec" ? "" : "none";
+  get("paneTsetup").style.display = t === "tsetup" ? "" : "none";
+  get("tabTspec").classList.toggle("active", t === "tspec");
+  get("tabTsetup").classList.toggle("active", t === "tsetup");
+}
+
+/* ---- Bakaxel & 4-link ---- */
+let axleSpecs = [];
+let fourLinkSetups = [];
+const AXLE_GROUPS = ["Drev & pinion", "Lager", "Differential", "Hus & tätningar"];
+const FLINK_GROUPS = ["Barer & placering", "Instant Center & antisquat", "Ride height & fjädring", "Dämpare"];
+
+function renderASpecs() {
+  const tb = get("aspecBody");
+  tb.innerHTML = "";
+  if (!axleSpecs.length) {
+    tb.innerHTML = "<tr><td colspan='6' style='color:var(--muted)'>No rear axle measurements registered.</td></tr>";
+    return;
+  }
+  AXLE_GROUPS.forEach(grp => {
+    const rows = axleSpecs.map((sp, i) => ({ sp, i })).filter(x => (x.sp.group || AXLE_GROUPS[0]) === grp);
+    if (!rows.length) return;
+    const gh = document.createElement("tr");
+    gh.innerHTML = `<td colspan='6'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    gh.style.background = "var(--card2)";
+    tb.appendChild(gh);
+    rows.forEach(({ sp, i }) => {
+      const st = specStatus(sp);
+      const pill = st === "danger" ? "<span class='pill danger'>OUT OF TOLERANCE</span>"
+        : st === "ok" ? "<span class='pill ok'>IN TOLERANCE</span>"
+        : "<span class='pill warn'>SHOULD MEASURE</span>";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${sp.name}</strong></td>
+        <td>${sp.dim || ""}</td>
+        <td>${sp.val !== null && sp.val !== "" ? sp.val + " " + (sp.unit || "") : "–"}</td>
+        <td class="muted">${sp.min ?? "–"} – ${sp.max ?? "–"} ${sp.unit || ""}</td>
+        <td>${pill}</td>
+        <td><button class="del" onclick="removeASpec(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addASpec() {
+  const name = get("asp_name").value.trim();
+  if (!name) { alert("Enter part name."); return; }
+  axleSpecs.push({
+    name,
+    group: get("asp_group").value,
+    dim: get("asp_dim").value,
+    val: get("asp_val").value === "" ? null : parseFloat(get("asp_val").value),
+    min: get("asp_min").value === "" ? null : parseFloat(get("asp_min").value),
+    max: get("asp_max").value === "" ? null : parseFloat(get("asp_max").value),
+    unit: get("asp_unit").value
+  });
+  ["asp_name","asp_dim","asp_val","asp_min","asp_max"].forEach(f => get(f).value = "");
+  renderASpecs();
+}
+
+function removeASpec(i) { axleSpecs.splice(i, 1); renderASpecs(); }
+
+function renderFSetups() {
+  const tb = get("fsetupBody");
+  tb.innerHTML = "";
+  if (!fourLinkSetups.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No 4-link settings registered.</td></tr>";
+    return;
+  }
+  FLINK_GROUPS.forEach(grp => {
+    const rows = fourLinkSetups.map((se, i) => ({ se, i })).filter(x => (x.se.group || FLINK_GROUPS[0]) === grp);
+    if (!rows.length) return;
+    const gh = document.createElement("tr");
+    gh.innerHTML = `<td colspan='4'><strong>${grp}</strong> <span class='muted'>(${rows.length})</span></td>`;
+    gh.style.background = "var(--card2)";
+    tb.appendChild(gh);
+    rows.forEach(({ se, i }) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${se.name}</strong></td>
+        <td>${se.value || ""}</td>
+        <td class="muted">${se.note || ""}</td>
+        <td><button class="del" onclick="removeFSetup(${i})" title="Delete">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+  });
+}
+
+function addFSetup() {
+  const name = get("fse_name").value.trim();
+  if (!name) { alert("Enter setting."); return; }
+  fourLinkSetups.push({ name, group: get("fse_group").value, value: get("fse_val").value, note: get("fse_note").value });
+  ["fse_name","fse_val","fse_note"].forEach(f => get(f).value = "");
+  renderFSetups();
+}
+
+function removeFSetup(i) { fourLinkSetups.splice(i, 1); renderFSetups(); }
+
+function showATab() { get("tabAspec").classList.add("active"); }
+function showFTab() { get("tabFsetup").classList.add("active"); }
+
+/* ---- Spårbara inställningar + API ---- */
+let trackSettings = {};
+
+function settingKeyExists(key) {
+  return Object.prototype.hasOwnProperty.call(trackSettings, key);
+}
+
+function addSettingRow() {
+  const key = get("st_key").value.trim();
+  if (!key) { alert("Enter a key, e.g. tire_pressure_rear"); return; }
+  if (settingKeyExists(key)) { alert("Key already exists: " + key); return; }
+  const label = get("st_label").value.trim() || key;
+  const value = get("st_value").value.trim() || "";
+  const unit = get("st_unit").value.trim() || "";
+  trackSettings[key] = {
+    label, unit,
+    value,
+    updated: new Date().toISOString(),
+    updated_by: "app",
+    history: value !== "" ? [{ date: new Date().toISOString(), from: null, to: value, source: "app", note: "Initial value" }] : []
+  };
+  ["st_key","st_label","st_value","st_unit"].forEach(f => get(f).value = "");
+  renderSettings();
+  save(true);
+}
+
+function removeSettingRow(key) {
+  if (!confirm("Delete setting \"" + key + "\"?")) return;
+  delete trackSettings[key];
+  renderSettings();
+  save(true);
+}
+
+function renderSettings() {
+  const tb = get("settingsBody");
+  tb.innerHTML = "";
+  const keys = Object.keys(trackSettings);
+  if (!keys.length) {
+    tb.innerHTML = "<tr><td colspan='5' style='color:var(--muted)'>No tracked settings registered.</td></tr>";
+    return;
+  }
+  keys.forEach(key => {
+    const st = trackSettings[key];
+    const histCount = (st.history || []).length;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${st.label || key}</strong><br><span class="muted" style="font-size:.72rem">${key}</span></td>
+      <td><strong>${st.value}</strong> ${st.unit || ""}</td>
+      <td class="muted">${st.updated ? st.updated.slice(0,16).replace("T"," ") : "–"}<br><span style="font-size:.72rem">${st.updated_by || ""}</span></td>
+      <td>${histCount ? `<button class="btn-sm" onclick="showHistory('${key}')">${histCount} change${histCount>1?"s":""}</button>` : "–"}</td>
+      <td><button class="del" onclick="removeSettingRow('${key}')" title="Delete">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function showHistory(key) {
+  const st = trackSettings[key];
+  if (!st || !st.history || !st.history.length) return;
+  const rows = st.history.slice().reverse().map(h =>
+    `${h.date.slice(0,16).replace("T"," ")}: ${h.from ?? "–"} → ${h.to} ${st.unit || ""} (${h.source || "?"}${h.note ? ", " + h.note : ""})`
+  ).join("\n");
+  alert("History – " + (st.label || key) + "\n\n" + rows);
+}
+
+/* ---- Publikt API för förutsägelse-appen ---- */
+window.RacingBilen = {
+  listVehicles: function() {
+    return Object.entries(readVehicles()).map(([id, v]) => ({ id, name: v.name || "Unnamed" }));
+  },
+
+  getSettings: function(vehicleId) {
+    const v = readVehicles()[vehicleId || localStorage.getItem(LS_ACTIVE)];
+    if (!v) return null;
+    const out = {};
+    Object.entries(v.settings || {}).forEach(([key, st]) => {
+      out[key] = { label: st.label, value: st.value, unit: st.unit, updated: st.updated, updated_by: st.updated_by };
+    });
+    return out;
+  },
+
+  getSetting: function(vehicleId, key) {
+    const v = readVehicles()[vehicleId || localStorage.getItem(LS_ACTIVE)];
+    if (!v || !v.settings || !v.settings[key]) return null;
+    const st = v.settings[key];
+    return { key, label: st.label, value: st.value, unit: st.unit, updated: st.updated, updated_by: st.updated_by, history: (st.history || []).slice() };
+  },
+
+  updateSetting: function(vehicleId, key, newValue, opts) {
+    opts = opts || {};
+    const vid = vehicleId || localStorage.getItem(LS_ACTIVE);
+    const vehicles = readVehicles();
+    const v = vehicles[vid];
+    if (!v) return { ok: false, error: "Fordonet finns inte: " + vid };
+    if (!v.settings || !v.settings[key]) return { ok: false, error: "Inställningen finns inte: " + key };
+    const st = v.settings[key];
+    const strVal = String(newValue);
+    if (String(st.value) === strVal) return { ok: true, changed: false, value: st.value };
+    const old = st.value;
+    st.value = strVal;
+    st.updated = new Date().toISOString();
+    st.updated_by = opts.source || "external";
+    st.history = (st.history || []).concat([{
+      date: st.updated,
+      from: old,
+      to: strVal,
+      source: opts.source || "external",
+      note: opts.note || ""
+    }]);
+    vehicles[vid] = v;
+    writeVehicles(vehicles);
+    if (vid === localStorage.getItem(LS_ACTIVE)) {
+      trackSettings = v.settings || {};
+      renderSettings();
+    }
+    return { ok: true, changed: true, from: old, to: strVal, updated: st.updated };
+  },
+
+  onChange: null
+};
+
+/* ---- postMessage-brygga: externa appar anropar via window.postMessage ----
+   Förfrågan: { type: "racingbil", action: "listVehicles"|"getSettings"|"getSetting"|"updateSetting",
+                vehicleId?, key?, value?, opts?, reqId? }
+   Svar skickas till avsändaren: { type: "racingbil:reply", reqId, ok, data|error } */
+window.addEventListener("message", function(ev) {
+  const msg = ev.data;
+  if (!msg || msg.type !== "racingbil" || !msg.action) return;
+  const reply = (ok, payload) => {
+    const r = { type: "racingbil:reply", reqId: msg.reqId || null, ok };
+    if (ok) r.data = payload; else r.error = payload;
+    ev.source && ev.source.postMessage(r, ev.origin || "*");
+  };
+  try {
+    switch (msg.action) {
+      case "listVehicles":
+        reply(true, window.RacingBilen.listVehicles());
+        break;
+      case "getSettings":
+        reply(true, window.RacingBilen.getSettings(msg.vehicleId));
+        break;
+      case "getSetting": {
+        const st = window.RacingBilen.getSetting(msg.vehicleId, msg.key);
+        if (!st) reply(false, "Inställningen finns inte: " + msg.key);
+        else reply(true, st);
+        break;
+      }
+      case "updateSetting": {
+        const res = window.RacingBilen.updateSetting(msg.vehicleId, msg.key, msg.value, msg.opts);
+        if (!res.ok) reply(false, res.error);
+        else reply(true, res);
+        break;
+      }
+      default:
+        reply(false, "Okänd åtgärd: " + msg.action);
+    }
+  } catch(e) {
+    reply(false, "Fel: " + e.message);
+  }
+});
+
+/* ---- Vy-växlare & Förutsägelse-panel ---- */
+function showView(v) {
+  get("viewGarage").style.display = v === "garage" ? "" : "none";
+  get("viewRuns").style.display = v === "runs" ? "" : "none";
+  get("viewPred").style.display = v === "pred" ? "" : "none";
+  get("viewbtn-garage").classList.toggle("active", v === "garage");
+  get("viewbtn-runs").classList.toggle("active", v === "runs");
+  get("viewbtn-pred").classList.toggle("active", v === "pred");
+  if (v === "runs") { renderRuns(); get("runsVehicleName").textContent = get("name").value || "New vehicle"; }
+  if (v === "pred") { predRefresh(); refreshPredWeather(); }
+}
+
+let predChanges = [];
+
+function predRefresh() {
+  const vehicles = window.RacingBilen.listVehicles();
+  const sel = get("predVehicle");
+  sel.innerHTML = vehicles.map(v => `<option value="${v.id}">${v.name}</option>`).join("");
+  const savedId = localStorage.getItem(LS_ACTIVE);
+  if (vehicles.some(v => v.id === savedId)) sel.value = savedId;
+
+  const settings = window.RacingBilen.getSettings(sel.value) || {};
+  const tb = get("predBody");
+  tb.innerHTML = "";
+  const keys = Object.keys(settings);
+  if (!keys.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No tracked settings for this vehicle. Add them in the garage under \"Tracked settings\".</td></tr>";
+    return;
+  }
+  keys.forEach(key => {
+    const st = settings[key];
+    const suggested = predSuggest(key, parseFloat(st.value));
+    const tr = document.createElement("tr");
+    const canSuggest = suggested !== null && !isNaN(suggested);
+    tr.innerHTML = `
+      <td><strong>${st.label || key}</strong><br><span class="muted" style="font-size:.72rem">${key} (${st.unit || ""})</span></td>
+      <td><strong>${st.value}</strong> ${st.unit || ""}</td>
+      <td>${canSuggest ? `<strong>${suggested}</strong> ${st.unit || ""}` : "–"}</td>
+      <td>${canSuggest && suggested !== parseFloat(st.value)
+        ? `<button class="btn-sm" onclick="predApply('${key}', ${suggested})">Använd</button>`
+        : ""}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function predSuggest(key, current) {
+  // Exempel-logik: ersätt med riktig prediktionsmodell senare
+  if (isNaN(current)) return null;
+  if (key === "tire_pressure_rear" || key === "tire_pressure_front") {
+    return Math.round((current * 0.95) * 100) / 100;
+  }
+  return null;
+}
+
+function predApply(key, newValue) {
+  const vid = get("predVehicle").value;
+  const res = window.RacingBilen.updateSetting(vid, key, newValue, {
+    source: "forutsagelse",
+    note: "Automatisk rekommendation från förutsägelse-appen"
+  });
+  if (res.ok && res.changed) {
+    const now = new Date().toISOString().slice(0,16).replace("T"," ");
+    predChanges.unshift(`${now}: ${key} ${res.from} → ${res.to} (prediction)`);
+    get("predLog").innerHTML = predChanges.join("<br>");
+  } else if (!res.ok) {
+    alert("Could not update: " + res.error);
+  }
+  predRefresh();
+}
+
+/* ---- Repa (manuell) + väder + prediktion ---- */
+let vehicleRuns = [];
+
+let editingRunIndex = null;
+
+function openRunModal(editIndex) {
+  const modal = get("runModal");
+  const title = modal.querySelector("h3");
+  const now = new Date();
+  fillTrackSelects();
+  if (editIndex !== undefined && vehicleRuns[editIndex]) {
+    editingRunIndex = editIndex;
+    const r = vehicleRuns[editIndex];
+    title.textContent = "⏱ Edit run";
+    get("run_date").value = r.date || "";
+    get("run_time").value = r.time || "";
+    get("run_track").value = r.track && TRACKS.some(t => t.name === r.track) ? r.track : DEFAULT_TRACK;
+    get("run_ft60").value = r.ft60 ?? "";
+    get("run_et18").value = r.et18 ?? "";
+    get("run_et14").value = r.et14 ?? "";
+    get("run_mph").value = r.mph ?? "";
+    const w = r.weather || {};
+    get("run_temp").value = w.temp ?? "";
+    get("run_wind").value = w.wind ?? "";
+    get("run_winddir").value = w.winddir ?? "";
+    get("run_hum").value = w.hum ?? "";
+    get("run_cond").value = w.cond ?? "";
+    get("run_include").checked = r.include_in_pred !== false;
+    get("run_headwind").textContent = w.headwind !== null && w.headwind !== undefined ? headwindText(w.headwind) : "";
+    get("runSaveBtn").textContent = "Save changes";
+    renderRunSettingsForRun(r);
+    modal.classList.add("open");
+  } else {
+    editingRunIndex = null;
+    title.textContent = "⏱ Log run";
+    get("run_date").value = now.toISOString().slice(0,10);
+    get("run_time").value = now.toTimeString().slice(0,5);
+    get("run_track").value = lastTrack() || DEFAULT_TRACK;
+    ["run_ft60","run_et18","run_et14","run_mph","run_temp","run_wind","run_winddir","run_hum","run_cond"].forEach(f => get(f).value = "");
+    get("run_include").checked = true;
+    get("run_headwind").textContent = "";
+    get("runSaveBtn").textContent = "Save run";
+    renderRunSettings();
+    modal.classList.add("open");
+    fetchWeatherFor("run");
+  }
+}
+
+function renderRunSettingsForRun(run) {
+  renderRunSettings();
+  if (run && run.settings_snapshot) {
+    Object.entries(run.settings_snapshot).forEach(([k, v]) => {
+      const inp = get("rst_" + k);
+      if (inp) inp.value = v;
+    });
+  }
+}
+
+function renderRunSettings() {
+  const box = get("runSettings");
+  const keys = Object.keys(trackSettings);
+  if (!keys.length) {
+    box.innerHTML = "<div class='meta' style='margin-top:0'>No tracked settings registered.</div>";
+    return;
+  }
+  box.innerHTML = keys.map(k => {
+    const st = trackSettings[k];
+    return `<div class="field" style="margin-bottom:8px"><label>${st.label || k} (${st.unit || ""})</label><input id="rst_${k}" value="${st.value}"></div>`;
+  }).join("");
+}
+
+/* Banregister: lägg till fler banor här (namn, latitud, longitud) */
+/* bearing = körriktning startlinje→mållinje i grader (0=nord, 90=öst, 180=syd, 270=väst).
+   Justera efter banans verkliga riktning. */
+const TRACKS = [
+  { name: "Tierp Arena", lat: 59.87, lon: 17.51, bearing: 15 },
+  { name: "Sundsvall Raceway", lat: 62.44, lon: 17.35, bearing: 120 },
+  { name: "Mantorp Park", lat: 58.51, lon: 15.21, bearing: 105 },
+  { name: "Malmö Raceway", lat: 55.55, lon: 13.07, bearing: 200 },
+  { name: "Övrig/egen bana", lat: 59.33, lon: 18.07, bearing: 0 }
+];
+const DEFAULT_TRACK = "Tierp Arena";
+
+function trackByName(name) {
+  return TRACKS.find(t => t.name === name) || TRACKS[0];
+}
+
+function fillTrackSelects() {
+  const opts = TRACKS.map(t => `<option value="${t.name}">${t.name}</option>`).join("");
+  const rt = get("run_track");
+  const pt = get("predTrack");
+  if (rt) rt.innerHTML = opts;
+  if (pt) {
+    const cur = pt.value;
+    pt.innerHTML = opts;
+    if ([...TRACKS].some(t => t.name === cur)) pt.value = cur;
+  }
+}
+
+function fillRunWeatherHint() {
+  // platsbaserat väder hämtas via knappen; inga GPS-beroenden
+}
+
+/* Motvind positiv, tailwind negativ.
+   windDir = väderlektionell riktning (varifrån vinden blåser). */
+function headwindComponent(speed, windDir, bearing) {
+  if (speed === null || speed === undefined || windDir === null || windDir === undefined) return null;
+  const rad = (windDir - bearing) * Math.PI / 180;
+  return Math.round((speed * Math.cos(rad)) * 10) / 10;
+}
+
+function headwindText(hw) {
+  if (hw === null || hw === undefined || isNaN(hw)) return "";
+  if (Math.abs(hw) < 0.1) return "vind neutrality (0 m/s along track)";
+  return (hw > 0 ? "headwind " : "tailwind ") + Math.abs(hw).toFixed(1) + " m/s along track";
+}
+
+function fetchWeatherFor(prefix) {
+  const setFields = (w) => {
+    if (prefix === "run") {
+      get("run_temp").value = w.temp;
+      get("run_wind").value = w.wind;
+      get("run_hum").value = w.hum;
+      get("run_cond").value = w.cond;
+      get("run_winddir").value = w.windDir ?? "";
+      const hwEl = get("run_headwind");
+      if (hwEl) hwEl.textContent = headwindText(w.headwind);
+    }
+  };
+  const trackEl = prefix === "run" ? get("run_track") : get("predTrack");
+  const track = trackByName(trackEl ? trackEl.value : DEFAULT_TRACK);
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${track.lat}&longitude=${track.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code`)
+    .then(r => r.json())
+    .then(j => {
+      const c = j.current || {};
+      const w = {
+        temp: c.temperature_2m ?? "",
+        wind: c.wind_speed_10m ?? "",
+        hum: c.relative_humidity_2m ?? "",
+        cond: weatherName(c.weather_code),
+        track: track.name,
+        windDir: c.wind_direction_10m ?? null,
+        headwind: headwindComponent(c.wind_speed_10m, c.wind_direction_10m, track.bearing)
+      };
+      lastWeather = w;
+      setFields(w);
+      if (prefix === "pred") renderPredNow(w);
+    })
+    .catch(() => { if (prefix === "run") alert("Could not fetch weather for " + track.name + " – fill in manually."); });
+}
+
+function weatherName(code) {
+  const map = {0:"Clear",1:"Mostly clear",2:"Variable",3:"Cloudy",45:"Fog",48:"Fog",51:"Drizzle",61:"Rain",63:"Rain",65:"Rain",71:"Snow",80:"Showers",95:"Thunder"};
+  return map[code] || "–";
+}
+
+let lastWeather = null;
+
+function saveRun() {
+  const date = get("run_date").value;
+  if (!date) { alert("Enter date."); return; }
+  const run = {
+    date,
+    time: get("run_time").value,
+    track: get("run_track").value,
+    weather_source: "banbaserad",
+    ft60: get("run_ft60").value || null,
+    et18: get("run_et18").value || null,
+    et14: get("run_et14").value || null,
+    mph: get("run_mph").value || null,
+    include_in_pred: get("run_include").checked,
+    weather: {
+      temp: get("run_temp").value || null,
+      wind: get("run_wind").value || null,
+      winddir: get("run_winddir").value || null,
+      headwind: get("run_wind").value && get("run_winddir").value
+        ? headwindComponent(parseFloat(get("run_wind").value), parseFloat(get("run_winddir").value), trackByName(get("run_track").value).bearing)
+        : null,
+      hum: get("run_hum").value || null,
+      cond: get("run_cond").value || null
+    }
+  };
+  const snapshot = {};
+  Object.keys(trackSettings).forEach(k => {
+    const inp = get("rst_" + k);
+    if (inp) snapshot[k] = inp.value.trim();
+  });
+  const changed = [];
+  Object.keys(trackSettings).forEach(k => {
+    const inp = get("rst_" + k);
+    if (!inp) return;
+    const val = inp.value.trim();
+    if (val !== String(trackSettings[k].value)) {
+      const res = window.RacingBilen.updateSetting(null, k, val, { source: editingRunIndex !== null ? "reparedigering" : "repa", note: (editingRunIndex !== null ? "Changed when editing run " : "Changed at run ") + date });
+      if (res.ok && res.changed) changed.push(k);
+    }
+  });
+  if (editingRunIndex !== null && vehicleRuns[editingRunIndex]) {
+    run.settings_snapshot = snapshot;
+    vehicleRuns[editingRunIndex] = run;
+    editingRunIndex = null;
+  } else {
+    run.settings_snapshot = snapshot;
+    vehicleRuns.unshift(run);
+    localStorage.setItem("racingbil.lastTrack", run.track);
+    parts.forEach(p => p.races += 1);
+    raceLog.unshift({ date, count: 1 });
+  }
+  save(true);
+  renderRuns();
+  renderParts();
+  renderRaceLog();
+  renderDashboard();
+  get("runModal").classList.remove("open");
+  alert("Run saved" + (changed.length ? " – settings updated: " + changed.join(", ") : "") + ".");
+}
+
+function toggleRunInclude(i) {
+  const r = vehicleRuns[i];
+  r.include_in_pred = r.include_in_pred === false ? true : false;
+  save(true);
+  renderRuns();
+}
+
+function lastTrack() {
+  const t = localStorage.getItem("racingbil.lastTrack");
+  return TRACKS.some(tr => tr.name === t) ? t : null;
+}
+
+function removeRun(i) {
+  if (!confirm("Delete run " + vehicleRuns[i].date + "?")) return;
+  vehicleRuns.splice(i, 1);
+  if (expandedRun === i) expandedRun = null;
+  else if (expandedRun !== null && expandedRun > i) expandedRun--;
+  save(true);
+  renderRuns();
+}
+
+function renderRuns() {
+  const tb = get("runsBody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  if (!vehicleRuns.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>Inga runs registrerade ännu för detta fordon. Click \"+ Log individual run\" above.</td></tr>";
+    return;
+  }
+  vehicleRuns.forEach((r, i) => {
+    const w = r.weather || {};
+    const hw = w.headwind;
+    const included = r.include_in_pred !== false;
+    const tr = document.createElement("tr");
+    tr.className = "partrow";
+    tr.onclick = (e) => { if (!e.target.closest("button")) toggleRunDetails(i); };
+    tr.innerHTML = `
+      <td>${r.date}${r.time ? ` <span class="muted" style="font-size:.78rem">${r.time}</span>` : ""}</td>
+      <td><strong>${r.et14 ?? "–"}</strong></td>
+      <td><button class="btn-sm" onclick="event.stopPropagation(); toggleRunInclude(${i})" title="Toggle whether the run is used in prediction" style="${included ? "color:var(--ok)" : "color:var(--muted)"}">${included ? "✓ Yes" : "✕ No"}</button></td>
+      <td>
+        <button class="btn-sm" onclick="event.stopPropagation(); openRunModal(${i})" title="Edit run">✎</button>
+        <button class="del" onclick="event.stopPropagation(); removeRun(${i})" title="Delete">✕</button>
+      </td>`;
+    tb.appendChild(tr);
+    if (expandedRun === i) {
+      const dr = document.createElement("tr");
+      dr.className = "part-row-details";
+      const snap = r.settings_snapshot || {};
+      const snapTxt = Object.keys(snap).length
+        ? Object.entries(snap).map(([k, v]) => `${k}: ${v}`).join(" · ")
+        : "No settings snapshot";
+      dr.innerHTML = `<td colspan="4">
+        <div class="detail-grid">
+          <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
+          <div><div class="dl">60-ft</div><div class="dv">${r.ft60 ?? "–"}</div></div>
+          <div><div class="dl">1/8 ET</div><div class="dv">${r.et18 ?? "–"}</div></div>
+          <div><div class="dl">Trap speed</div><div class="dv">${r.mph ?? "–"} km/h</div></div>
+          <div><div class="dl">Temp</div><div class="dv">${w.temp ?? "–"}°C</div></div>
+          <div><div class="dl">Conditions</div><div class="dv">${w.cond || "–"}</div></div>
+          <div><div class="dl">Wind</div><div class="dv">${w.wind ?? "–"} m/s from ${w.winddir ?? "–"}°</div></div>
+          <div><div class="dl">Head/tailwind</div><div class="dv">${hw !== null && hw !== undefined ? headwindText(hw) : "–"}</div></div>
+          <div><div class="dl">Humidity</div><div class="dv">${w.hum ?? "–"}%</div></div>
+          <div><div class="dl">In prediction</div><div class="dv">${included ? "Yes" : "No"}</div></div>
+        </div>
+        <div class="detail-history"><b>Settings at time of run:</b> ${snapTxt}</div>
+      </td>`;
+      tb.appendChild(dr);
+    }
+  });
+}
+
+let expandedRun = null;
+
+function toggleRunDetails(i) {
+  expandedRun = expandedRun === i ? null : i;
+  renderRuns();
+}
+
+function renderPredNow(w) {
+  const el = get("predNow");
+  const meta = get("predNowMeta");
+  if (!el) return;
+  if (!w) { el.innerHTML = "Weather unavailable – prediction will show once weather is fetched."; meta.textContent = ""; return; }
+  const ets = vehicleRuns.filter(r => r.et14 && r.weather && r.weather.temp !== null && r.include_in_pred !== false).map(r => ({ et: parseFloat(r.et14), temp: parseFloat(r.weather.temp) }));
+  if (!ets.length) {
+    el.innerHTML = `<span class="dash-num warn">No history yet</span> – registrera runs med ET och väder för att få en prediktion.`;
+    meta.textContent = `${w.track || "Track"}: ${w.temp}°C, vind ${w.wind} m/s, ${w.cond}.`
+    return;
+  }
+  const tNow = parseFloat(w.temp);
+  const avgTemp = ets.reduce((s2, e) => s2 + e.temp, 0) / ets.length;
+  const avgEt = ets.reduce((s2, e) => s2 + e.et, 0) / ets.length;
+  const factor = 1 + (avgTemp - tNow) * 0.002;
+  let pred = avgEt * factor;
+  const hw = w.headwind;
+  let windAdj = 0;
+  if (hw !== null && hw !== undefined && !isNaN(hw)) {
+    windAdj = hw * 0.01;
+    pred += windAdj;
+  }
+  el.innerHTML = `<span class="dash-num ok">${pred.toFixed(3)}s</span> – estimated 1/4 ET in current weather${hw !== null && hw !== undefined && !isNaN(hw) ? "<br><span class='muted' style='font-size:.85rem'>" + headwindText(hw) + " (" + (w.track || "") + ", bana riktning " + (trackByName(w.track).bearing) + "°, wind from " + (w.windDir ?? "?") + "°)</span>" : ""}`;
+  meta.textContent = `Base: ${avgEt.toFixed(3)}s average of ${ets.length} runs vid ${avgTemp.toFixed(1)}°C · Temp adjustment: ${(tNow-avgTemp).toFixed(1)}°C → ${((factor-1)*100).toFixed(1)}%${windAdj !== 0 ? " · Wind adjustment: " + (windAdj > 0 ? "+" : "") + windAdj.toFixed(3) + "s" : ""} · ${w.track || "Track"}: ${w.temp}°C, vind ${w.wind} m/s, ${w.cond}`;
+}
+
+function refreshPredWeather() {
+  get("predNow").innerHTML = "Fetching weather…";
+  fetchWeatherFor("pred");
+}
+
+/* ---- Fordonshantering ---- */
+const LS_VEHICLES = "racingbil.vehicles";
+const LS_ACTIVE = "racingbil.active";
+
+function readVehicles() {
+  try { return JSON.parse(localStorage.getItem(LS_VEHICLES)) || {}; }
+  catch(e) { return {}; }
+}
+
+function writeVehicles(vehicles) {
+  localStorage.setItem(LS_VEHICLES, JSON.stringify(vehicles));
+}
+
+function currentVehicleId() {
+  const id = localStorage.getItem(LS_ACTIVE);
+  if (id && readVehicles()[id]) return id;
+  const first = Object.keys(readVehicles())[0];
+  if (first) { localStorage.setItem(LS_ACTIVE, first); return first; }
+  return null;
+}
+
+function toggleCard(cardId) {
+  const card = get(cardId);
+  card.classList.toggle("collapsed");
+  const open = !card.classList.contains("collapsed");
+  card.querySelector(".chev").textContent = open ? "▲" : "▼";
+}
+
+function renderVehicleSelect() {
+  const vehicles = readVehicles();
+  const sel = get("vehicleSelect");
+  const ids = Object.keys(vehicles);
+  sel.innerHTML = ids.length
+    ? ids.map(id => `<option value="${id}">${vehicles[id].name || "Unnamed"}</option>`).join("")
+    : `<option value="">– no vehicles –</option>`;
+  const cur = localStorage.getItem(LS_ACTIVE);
+  if (ids.includes(cur)) sel.value = cur;
+}
+
+function updateIdentName() {
+  get("identName").textContent = get("name").value || "New vehicle";
+}
+
+function switchVehicle(id) {
+  save(true);
+  localStorage.setItem(LS_ACTIVE, id);
+  load(readVehicles()[id] || {});
+}
+
+function newVehicle() {
+  save(true);
+  const id = "v" + Date.now();
+  const vehicles = readVehicles();
+  vehicles[id] = { name: "New vehicle", sfi_tag: "", chassis_number: "" };
+  writeVehicles(vehicles);
+  localStorage.setItem(LS_ACTIVE, id);
+  load(vehicles[id]);
+  get("cardIdent").classList.remove("collapsed");
+  get("cardIdent").querySelector(".chev").textContent = "▲";
+}
+
+function deleteVehicle() {
+  const id = localStorage.getItem(LS_ACTIVE);
+  if (!id) return;
+  const vehicles = readVehicles();
+  if (!confirm("Delete vehicle \"" + (vehicles[id]?.name || "") + "\" permanently?")) return;
+  delete vehicles[id];
+  writeVehicles(vehicles);
+  const next = Object.keys(vehicles)[0] || null;
+  if (next) localStorage.setItem(LS_ACTIVE, next);
+  else localStorage.removeItem(LS_ACTIVE);
+  if (next) load(vehicles[next]);
+  else load({});
+  renderVehicleSelect();
+}
+
+/* ---- Sektionsväljare ---- */
+const SECTIONS = { engine: "cardEngine", trans: "cardTrans", axle: "cardAxle", fourlink: "cardFourlink" };
+
+function showSection(key) {
+  Object.entries(SECTIONS).forEach(([k, cardId]) => {
+    get(cardId).style.display = k === key ? "" : "none";
+    get("secbtn-" + k).classList.toggle("active", k === key);
+  });
+}
+
+/* ---- Trafikljus ---- */
+function trafficLight(elId, worst) {
+  const el = get(elId);
+  if (!el) return;
+  el.innerHTML = `
+    <span class="dot ${worst === "ok" ? "on-ok" : ""}"></span>
+    <span class="dot ${worst === "warn" ? "on-warn" : ""}"></span>
+    <span class="dot ${worst === "danger" ? "on-danger" : ""}"></span>`;
+}
+
+function groupStatus(specs) {
+  let worst = null;
+  specs.forEach(sp => {
+    const st = specStatus(sp);
+    if (st === "danger") worst = "danger";
+    else if (st === "warn" && worst !== "danger") worst = "warn";
+    else if (st === "ok" && !worst) worst = "ok";
+  });
+  return worst || "ok";
+}
+
+function renderTrafficLights() {
+  trafficLight("trafficEngine", groupStatus(engineSpecs));
+  trafficLight("trafficTrans", groupStatus(transSpecs));
+  trafficLight("trafficAxle", groupStatus(axleSpecs));
+  const flOk = fourLinkSetups.length ? "ok" : "ok";
+  trafficLight("trafficFourlink", flOk);
+}
+
+/* ---- Delregister ---- */
+let parts = [];
+let raceLog = [];
+let serviceTarget = null;
+
+const WARN_REPOR = 20;
+
+function partStatus(p) {
+  const msgs = [];
+  let worst = "ok";
+  let runsLeft = null, daysLeft = null;
+  if (p.interval_races) {
+    runsLeft = p.interval_races - p.races;
+    if (runsLeft <= 0) { msgs.push("Replacement/service needed (run interval reached)"); worst = "danger"; }
+    else if (runsLeft <= WARN_REPOR) { msgs.push("Replace/check within " + runsLeft + " runs"); if (worst !== "danger") worst = "warn"; }
+  }
+  if (p.interval_days && p.last_service) {
+    const d = daysUntil(p.last_service);
+    daysLeft = Math.round(p.interval_days + d);
+    if (daysLeft <= 0) { msgs.push("Service overdue (" + Math.abs(daysLeft) + " days ago)"); worst = "danger"; }
+    else if (daysLeft <= 30) { msgs.push("Service within " + daysLeft + " days"); if (worst !== "danger") worst = "warn"; }
+  }
+  return { worst, msg: msgs.length ? msgs.join(" · ") : "OK – within interval", runsLeft, daysLeft };
+}
+
+function renderDashboard() {
+  renderTrafficLights();
+  const body = get("dashBody");
+  const top = get("dashTop");
+  body.innerHTML = "";
+  if (!parts.length) {
+    top.innerHTML = "Register parts to see status before the next race weekend.";
+    get("dashMeta").textContent = "";
+    return;
+  }
+  const alert = parts.filter(p => partStatus(p).worst === "danger");
+  const warn = parts.filter(p => partStatus(p).worst === "warn");
+  const ok = parts.length - alert.length - warn.length;
+  let headline;
+  if (alert.length) headline = `<span class="dash-num danger">${alert.length} del${alert.length > 1 ? "ar" : ""} part(s) need action NOW</span> – replace before next race`;
+  else if (warn.length) headline = `<span class="dash-num warn">${warn.length} del${warn.length > 1 ? "ar" : ""} approaching interval</span> – plan replacement within ${WARN_REPOR} runs`;
+  else headline = `<span class="dash-num ok">All clear</span> – no parts within ${WARN_REPOR} runs eller 30 days`;
+  top.innerHTML = `${headline}<br><span style="color:var(--muted);font-size:.85rem">${ok} parts green · ${warn.length} yellow · ${alert.length} red</span>`;
+
+  const rank = { danger: 0, warn: 1, ok: 2 };
+  const sorted = parts.map((p, i) => ({ p, i, st: partStatus(p) }))
+    .sort((a, b) => {
+      if (rank[a.st.worst] !== rank[b.st.worst]) return rank[a.st.worst] - rank[b.st.worst];
+      const aMin = Math.min(a.st.runsLeft ?? Infinity, a.st.daysLeft ?? Infinity);
+      const bMin = Math.min(b.st.runsLeft ?? Infinity, b.st.daysLeft ?? Infinity);
+      return aMin - bMin;
+    });
+  sorted.forEach(({ p, st }) => {
+    const tr = document.createElement("tr");
+    const runs = st.runsLeft === null ? "–" : st.runsLeft <= 0 ? "0 (uppnått)" : `<strong>${st.runsLeft}</strong> runs`;
+    const days = st.daysLeft === null ? "–" : st.daysLeft <= 0 ? "0 (förfallen)" : `${st.daysLeft} days`;
+    const pillTxt = st.worst === "danger" ? "ACTION REQUIRED" : st.worst === "warn" ? "SOON" : "OK";
+    tr.innerHTML = `<td><strong>${p.name}</strong></td><td>${runs}</td><td>${days}</td><td><span class="pill ${st.worst}">${pillTxt}</span></td>`;
+    body.appendChild(tr);
+  });
+  get("dashMeta").textContent = `Yellow warning shows when a part has ${WARN_REPOR} runs eller färre kvar – så hinner du byta innan tävlingshelgen (en helg kan ge 10+ runs).`;
+}
+
+let expandedPart = null;
+
+function renderParts() {
+  const tb = get("partsBody");
+  tb.innerHTML = "";
+  if (!parts.length) {
+    tb.innerHTML = "<tr><td colspan='3' style='color:var(--muted)'>No parts registered yet.</td></tr>";
+    return;
+  }
+  parts.forEach((p, i) => {
+    const st = partStatus(p);
+    const isOpen = expandedPart === i;
+    const tr = document.createElement("tr");
+    tr.className = "partrow" + (isOpen ? " open" : "");
+    tr.onclick = (e) => {
+      if (e.target.closest("button")) return;
+      expandedPart = expandedPart === i ? null : i;
+      renderParts();
+    };
+    tr.innerHTML = `
+      <td><strong>${p.name}</strong></td>
+      <td><span class="traffic">
+        <span class="dot ${st.worst === "ok" ? "on-ok" : ""}"></span>
+        <span class="dot ${st.worst === "warn" ? "on-warn" : ""}"></span>
+        <span class="dot ${st.worst === "danger" ? "on-danger" : ""}"></span>
+      </span> <span class="muted" style="font-size:.78rem">${st.worst === "danger" ? "ACTION REQUIRED" : st.worst === "warn" ? "SOON" : "OK"}</span></td>
+      <td><span class="chev">${isOpen ? "▲" : "▼"}</span></td>`;
+    tb.appendChild(tr);
+    if (isOpen) {
+      const dr = document.createElement("tr");
+      dr.className = "part-row-details";
+      const hist = (p.history || []).map(h => `${h.date}: ${h.note}`).join(" · ") || "No service history yet.";
+      dr.innerHTML = `<td colspan="3">
+        <div class="detail-grid">
+          <div><div class="dl">Category</div><div class="dv">${p.category || "–"}</div></div>
+          <div><div class="dl">Runs since replacement</div><div class="dv">${p.races}</div></div>
+          <div><div class="dl">Interval runs</div><div class="dv">${p.interval_races ?? "–"}</div></div>
+          <div><div class="dl">Interval days</div><div class="dv">${p.interval_days ?? "–"}</div></div>
+          <div><div class="dl">Runs left</div><div class="dv">${st.runsLeft ?? "–"}</div></div>
+          <div><div class="dl">Days left</div><div class="dv">${st.daysLeft ?? "–"}</div></div>
+          <div><div class="dl">Last service</div><div class="dv">${p.last_service || "–"}</div></div>
+        </div>
+        <div class="detail-history"><b>Recommendation:</b> ${st.msg} · <b>History:</b> ${hist}</div>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="btn-sm" onclick="event.stopPropagation(); bumpPart(${i})">+1 run</button>
+          <button class="btn-sm" onclick="event.stopPropagation(); openService(${i})">🔧 Service/replace</button>
+          <button class="btn-sm" onclick="event.stopPropagation(); removePart(${i})">Delete</button>
+        </div>
+      </td>`;
+      tb.appendChild(dr);
+    }
+  });
+}
+
+function addPart() {
+  const name = get("p_name").value.trim();
+  if (!name) { alert("Enter part name."); return; }
+  parts.push({
+    name,
+    category: get("p_cat").value,
+    races: parseInt(get("p_races").value) || 0,
+    interval_races: parseInt(get("p_int_races").value) || null,
+    interval_days: parseInt(get("p_int_days").value) || null,
+    last_service: get("p_last").value || null
+  });
+  ["p_name","p_races","p_int_races","p_int_days","p_last"].forEach(f => get(f).value = f === "p_races" ? "0" : "");
+  renderParts();
+  renderDashboard();
+}
+
+function bumpPart(i) { parts[i].races++; renderParts(); renderDashboard(); }
+
+function removePart(i) {
+  if (confirm("Remove \"" + parts[i].name + "\"?")) { parts.splice(i, 1); renderParts(); renderDashboard(); }
+}
+
+function openService(i) {
+  serviceTarget = i;
+  get("modalPartName").textContent = parts[i].name;
+  get("service_date").value = new Date().toISOString().slice(0,10);
+  get("service_note").value = "";
+  get("serviceModal").classList.add("open");
+}
+
+function closeModal() { get("serviceModal").classList.remove("open"); }
+
+function confirmService() {
+  const p = parts[serviceTarget];
+  p.last_service = get("service_date").value || new Date().toISOString().slice(0,10);
+  p.races = 0;
+  const note = get("service_note").value.trim();
+  if (note) p.history = (p.history || []).concat([{ date: p.last_service, note }]);
+  closeModal();
+  renderParts();
+  renderDashboard();
+}
+
+/* ---- Racelog ---- */
+function logRace() {
+  const date = get("race_date").value || new Date().toISOString().slice(0,10);
+  const count = parseInt(get("race_count").value) || 1;
+  raceLog.unshift({ date, count });
+  parts.forEach(p => p.races += count);
+  get("race_date").value = "";
+  get("race_count").value = "1";
+  renderParts();
+  renderRaceLog();
+  renderDashboard();
+}
+
+function renderRaceLog() {
+  const el = get("raceLog");
+  if (!raceLog.length) { el.textContent = "No runs registered."; return; }
+  const total = raceLog.reduce((s, r) => s + r.count, 0);
+  const last5 = raceLog.slice(0, 5).map(r => `${r.date} (${r.count} runs)`).join(", ");
+  el.textContent = `Total ${total} runs i ${raceLog.length} registered race days · latest: ${last5}`;
+}
+
+function load(data) {
+  FIELDS.forEach(f => {
+    if (f === "active") get(f).checked = data[f] !== false;
+    else get(f).value = data[f] || "";
+  });
+  parts = data.parts || [];
+  raceLog = data.race_log || [];
+  engineSpecs = data.engine_specs || [];
+  engineSetups = data.engine_setups || [];
+  transSpecs = data.trans_specs || [];
+  transSetups = data.trans_setups || [];
+  axleSpecs = data.axle_specs || [];
+  fourLinkSetups = data.fourlink_setups || [];
+  trackSettings = data.settings || {};
+  vehicleRuns = data.runs || [];
+  transType = data.tr_type || "";
+  get("headerName").textContent = data.name || "New vehicle";
+  renderVehicleSelect();
+  updateIdentName();
+  renderAlerts();
+  renderParts();
+  renderRaceLog();
+  renderDashboard();
+  renderSpecs();
+  renderSetups();
+  get("tr_type").value = transType;
+  fillGroupSelects();
+  renderTSpecs();
+  renderTSetups();
+  renderASpecs();
+  renderFSetups();
+  renderSettings();
+  renderRuns();
+  showSection("engine");
+}
+
+function loadDemo() {
+  load({
+    name: "Kärran", sfi_tag: "SFI-2025-04567", chassis_number: "WP0ZZZ95ZGN812345",
+    manufacturer: "Porsche", model: "944 Turbo", year: 1986, race_class: "Klass 6 RWD",
+    race_number: 12, color: "Svart/gul", engine: "M44/52 turbo",
+    eng_cc: 2479, eng_cyl: 4, eng_fuel: "Race-gas 102 OKT", eng_ind: "Turbo K26, 1.2 bar",
+    eng_comp: "8.5:1", eng_ign: "MSD 6AL + kill switch", eng_hp: 450,
+    eng_oil: "Torrtorrlager + Accusump",
+    tr_model: "Getrag 265", tr_type: "manuell", tr_gears: 5, tr_ratio: "3.91",
+    tr_shifter: "H-pattern, korta kast", tr_ecu: "Ingen (ren mekanisk)",
+    tr_oil: "75W-140 syntet", tr_note: "Byggd diff-spärr 75%",
+    ax_model: "Ford 9-inch", ax_ratio: "4.11", ax_pinion: "41/10",
+    ax_diff: "Spärrdifferential 75%", ax_oil: "75W-140 + friction modifier",
+    ax_note: "Nytt drev monterat 2026-08",
+    fl_type: "4-link, dubbla övre barer", fl_bars: "Stål, justerbara ändläger",
+    fl_chassis: "Chassifästen: 3 höjdlägen", fl_axle: "Undre barer: bottenläge",
+    transponder_id: "TR-774213", team: "Stallet AB",
+    inspection_date: new Date(Date.now() - 200*86400000).toISOString().slice(0,10),
+    inspection_valid_until: new Date(Date.now() + 21*86400000).toISOString().slice(0,10),
+    insurance_valid_until: new Date(Date.now() + 180*86400000).toISOString().slice(0,10),
+    next_service_date: new Date(Date.now() + 60*86400000).toISOString().slice(0,10),
+    active: true,
+    notes: "Kräver bromsskivekontroll var 5:e tävling.",
+    parts: [
+      { name: "Bromsskivor fram", category: "Bromsar", races: 18, interval_races: 60, interval_days: null, last_service: null },
+      { name: "Motorolja + filter", category: "Motor", races: 0, interval_races: null, interval_days: 180, last_service: new Date(Date.now() - 170*86400000).toISOString().slice(0,10) },
+      { name: "Koppling", category: "Transmission", races: 55, interval_races: 60, interval_days: null, last_service: null },
+      { name: "Skyddsglasögon", category: "Förare/säkerhet", races: 3, interval_races: 40, interval_days: null, last_service: null }
+    ],
+    engine_specs: [
+      { group: "Bottendel", name: "Vevtapp nr 3", dim: "Diameter vevtappe", val: 55.02, min: 54.98, max: 55.05, unit: "mm" },
+      { group: "Bottendel", name: "Lagertolerans vevlager nr 2", dim: "Radialt spel", val: 0.06, min: 0.04, max: 0.08, unit: "mm" },
+      { group: "Bottendel", name: "Kolvspel cyl 4", dim: "Spel kolv–cylindervägg", val: 0.12, min: 0.05, max: 0.10, unit: "mm" },
+      { group: "Topplock", name: "Ventilsäte cyl 1 intake", dim: "Bredd säte", val: 1.4, min: 1.2, max: 1.6, unit: "mm" },
+      { group: "Topplock", name: "Kamaxelift intake", dim: "Max lift", val: 11.3, min: 11.2, max: 11.4, unit: "mm" },
+      { group: "Insug", name: "Insugskanalspolering", dim: "Ytfinhet", val: null, min: null, max: null, unit: "mm" },
+      { group: "Avgas", name: "Avgasport dim", dim: "Diameter", val: 42.0, min: 41.5, max: 42.5, unit: "mm" },
+      { group: "Överladdning", name: "Turbo K26 backplate-spel", dim: "Axialt spel", val: 0.08, min: 0.04, max: 0.10, unit: "mm" },
+      { group: "Överladdning", name: "Wastegate-öppningstryck", dim: "Tryck vid full öppning", val: 1.2, min: 1.15, max: 1.25, unit: "bar" },
+      { group: "Styrsystem/Tändning", name: "Kill switch-funktion", dim: "Bryter tändning + bränslepump", val: 1, min: 1, max: 1, unit: "mm" },
+      { group: "Styrsystem/Tändning", name: "Kolvspel kamkedja", dim: "Deflection", val: null, min: null, max: null, unit: "mm" }
+    ],
+    engine_setups: [
+      { group: "Topplock", name: "Ventilspel intake", value: "0.25 mm (varm)", note: "Mät vid 60°C oljetemp" },
+      { group: "Topplock", name: "Ventilspel exhaust", value: "0.35 mm (varm)", note: "Mät vid 60°C oljetemp" },
+      { group: "Styrsystem/Tändning", name: "Tändinställning", value: "18° BTDC @ 1200 rpm", note: "Utan vacuum, race-gas 102" },
+      { group: "Överladdning", name: "Boosttryck (wastegate)", value: "1.2 bar", note: "Kontrollera med referensgauge" },
+      { group: "Insug", name: "Blandning (doserpump)", value: "1.5 varv från bas", note: "Efter byt av munstycken" }
+    ],
+    axle_specs: [
+      { group: "Drev & pinion", name: "Pinion depth", dim: "Djup pinion", val: 1.85, min: 1.80, max: 1.90, unit: "mm" },
+      { group: "Drev & pinion", name: "Ring gear backlash", dim: "Spel drev", val: 0.20, min: 0.15, max: 0.25, unit: "mm" },
+      { group: "Drev & pinion", name: "Kuggmönster contact", dim: "Mönster (spår i färg)", val: null, min: null, max: null, unit: "mm" },
+      { group: "Lager", name: "Pinionlager förspänning", dim: "Rotationsmoment", val: 2.8, min: 2.5, max: 3.2, unit: "Nm" },
+      { group: "Lager", name: "Sidolager förspänning", dim: "Rotationsmoment", val: null, min: null, max: null, unit: "Nm" },
+      { group: "Differential", name: "Klutchpack antal shims", dim: "Spärrgrad", val: 75, min: 70, max: 80, unit: "%" },
+      { group: "Differential", name: "Axialspel differential", dim: "Spel", val: 0.12, min: 0.10, max: 0.20, unit: "mm" },
+      { group: "Hus & tätningar", name: "Piniontätning läckage", dim: "Visuell kontroll", val: 0, min: 0, max: 0, unit: "mm" }
+    ],
+    fourlink_setups: [
+      { group: "Barer & placering", name: "Nedre barer längd", value: "22.5\" hål 2", note: "Baseline, bra hook på slicks" },
+      { group: "Barer & placering", name: "Övre barer längd", value: "24\" hål 1", note: "Samma vänster/höger" },
+      { group: "Barer & placering", name: "Undre barer chassifäste", value: "Nedre hål", note: "Mer antisquat" },
+      { group: "Instant Center & antisquat", name: "Instant Center (IC)", value: "54\" framför bakaxel, 4.2\" hög", note: "Beräknad vid ride height" },
+      { group: "Instant Center & antisquat", name: "Antisquat", value: "120%", note: "Öka till 130% om 60-ft sviktar" },
+      { group: "Ride height & fjädring", name: "Ride height bak", value: "3.5\" vid ramkanten", note: "Mät kall, utan förare justerad" },
+      { group: "Ride height & fjädring", name: "Fjäderförspänning bak", value: "2 varv förspänning", note: "Kontrollera efter var 5:e repa" },
+      { group: "Dämpare", name: "Stötdämpare tryck/retur", value: "12 klick tryck / 8 retur", note: "Öka tryck vid vägghård bana" }
+    ],
+    trans_specs: [
+      { group: "Koppling", name: "Kolvspel kopplingslager", dim: "Spel", val: 0.9, min: 0.8, max: 1.2, unit: "mm" },
+      { group: "Koppling", name: "Slagslängd pedalcirkel", dim: "Fri slagslängd", val: 15, min: 10, max: 20, unit: "mm" },
+      { group: "Växelmekanism", name: "Synkronring 3:e växeln", dim: "Spel synkronring", val: 1.3, min: 1.0, max: 1.8, unit: "mm" },
+      { group: "Diff/bakaxel", name: "Diff-lagerförspänning", dim: "Förspänning", val: null, min: null, max: null, unit: "Nm" }
+    ],
+    trans_setups: [
+      { group: "Koppling", name: "Lintryck koppling", value: "10 bar @ 2000 rpm", note: "Mät vid kopplingsmästare" },
+      { group: "Växelmekanism", name: "Växelförbindelse justering", value: "2 klick moturs", note: "Efter byte av växelledning" },
+      { group: "Diff/bakaxel", name: "Diff-oljebyte", value: "Var 20:e repa", note: "Efter dragracing med slicks" }
+    ],
+    settings: {
+      tire_pressure_rear: {
+        label: "Lufttryck bakdäck", unit: "bar", value: "1.4",
+        updated: new Date(Date.now() - 14*86400000).toISOString(), updated_by: "app",
+        history: [
+          { date: new Date(Date.now() - 40*86400000).toISOString(), from: null, to: "1.5", source: "app", note: "Initial value" },
+          { date: new Date(Date.now() - 14*86400000).toISOString(), from: "1.5", to: "1.4", source: "app", note: "Sänkte efter wheelspin i vänsterkurva" }
+        ]
+      },
+      tire_pressure_front: {
+        label: "Lufttryck framdäck", unit: "bar", value: "1.8",
+        updated: new Date(Date.now() - 40*86400000).toISOString(), updated_by: "app",
+        history: [{ date: new Date(Date.now() - 40*86400000).toISOString(), from: null, to: "1.8", source: "app", note: "Initial value" }]
+      },
+      launch_rpm: {
+        label: "Launch RPM", unit: "rpm", value: "4200",
+        updated: new Date(Date.now() - 14*86400000).toISOString(), updated_by: "app",
+        history: [{ date: new Date(Date.now() - 14*86400000).toISOString(), from: null, to: "4200", source: "app", note: "Initial value" }]
+      }
+    },
+    runs: [
+      { date: new Date(Date.now() - 40*86400000).toISOString().slice(0,10), time: "13:20", track: "Tierp Arena", ft60: "1.621", et18: "7.812", et14: "12.205", mph: "182.4", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.5", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "21.5", wind: "2.1", winddir: "10", headwind: 2.0, hum: "55", cond: "Clear" } },
+      { date: new Date(Date.now() - 14*86400000).toISOString().slice(0,10), time: "14:05", track: "Tierp Arena", ft60: "1.585", et18: "7.743", et14: "12.118", mph: "184.1", include_in_pred: true, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.2", wind: "3.4", winddir: "50", headwind: 3.3, hum: "62", cond: "Cloudy" } },
+      { date: new Date(Date.now() - 13*86400000).toISOString().slice(0,10), time: "15:30", track: "Tierp Arena", ft60: "1.912", et18: "8.410", et14: "13.348", mph: "171.2", include_in_pred: false, settings_snapshot: { tire_pressure_rear: "1.4", tire_pressure_front: "1.8", launch_rpm: "4200" }, weather: { temp: "17.0", wind: "4.2", winddir: "55", headwind: 4.0, hum: "65", cond: "Showers" } }
+    ],
+    race_log: [
+      { date: new Date(Date.now() - 14*86400000).toISOString().slice(0,10), count: 3 },
+      { date: new Date(Date.now() - 40*86400000).toISOString().slice(0,10), count: 2 }
+    ]
+  });
+}
+
+function exportBackup() {
+  save(true);
+  const vehicles = readVehicles();
+  if (!Object.keys(vehicles).length) { alert("No data to export."); return; }
+  const payload = {
+    app: "RacingBilen",
+    version: 1,
+    exported: new Date().toISOString(),
+    active_id: localStorage.getItem(LS_ACTIVE),
+    vehicles
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "racingbilen-backup-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  a.remove();
+}
+
+function importBackup(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(reader.result);
+      if (payload.app !== "RacingBilen" || !payload.vehicles) {
+        alert("Invalid file – not a RacingApp backup.");
+        return;
+      }
+      if (!confirm("This replaces all existing data with the file contents. Continue?")) return;
+      writeVehicles(payload.vehicles);
+      if (payload.active_id && payload.vehicles[payload.active_id]) {
+        localStorage.setItem(LS_ACTIVE, payload.active_id);
+      } else {
+        const first = Object.keys(payload.vehicles)[0];
+        if (first) localStorage.setItem(LS_ACTIVE, first);
+        else localStorage.removeItem(LS_ACTIVE);
+      }
+      const id = localStorage.getItem(LS_ACTIVE);
+      load(id ? payload.vehicles[id] : {});
+      renderVehicleSelect();
+      alert("Restore complete – " + Object.keys(payload.vehicles).length + " vehicles imported.");
+    } catch(e) {
+      alert("Could not read file: " + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  const id = localStorage.getItem(LS_ACTIVE);
+  if (id) {
+    const vehicles = readVehicles();
+    delete vehicles[id];
+    writeVehicles(vehicles);
+    const next = Object.keys(vehicles)[0] || null;
+    if (next) { localStorage.setItem(LS_ACTIVE, next); load(vehicles[next]); }
+    else { localStorage.removeItem(LS_ACTIVE); load({}); }
+    renderVehicleSelect();
+  } else load({});
+}
+
+FIELDS.filter(f => ["inspection_valid_until","insurance_valid_until","next_service_date"].includes(f))
+  .forEach(f => get(f).addEventListener("change", renderAlerts));
+get("name").addEventListener("input", updateIdentName);
+
+let vehicles = readVehicles();
+let activeId = localStorage.getItem(LS_ACTIVE);
+if (activeId && !vehicles[activeId]) activeId = null;
+
+if (activeId) {
+  load(vehicles[activeId]);
+} else if (Object.keys(vehicles).length) {
+  localStorage.setItem(LS_ACTIVE, Object.keys(vehicles)[0]);
+  load(vehicles[Object.keys(vehicles)[0]]);
+} else {
+  localStorage.setItem("racingbil.needDemo", "1");
+  loadDemo();
+  save(true);
+  localStorage.removeItem("racingbil.needDemo");
+}
+fillTrackSelects();
+get("predTrack").value = lastTrack() || DEFAULT_TRACK;
+showView("pred");
+</script>
+</body>
+</html>
