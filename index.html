@@ -655,6 +655,22 @@
   </div>
 
   <div class="card">
+    <h2>Search runs</h2>
+    <div class="grid" style="grid-template-columns: 2fr 1fr auto; align-items:end; gap:10px">
+      <div class="field"><label>Free text search</label><input id="runsSearch" placeholder="Date, track, time, dial-in…" oninput="applyRunsFilter()"></div>
+      <div class="field"><label>Show</label>
+        <select id="runsPredFilter" onchange="applyRunsFilter()">
+          <option value="all">All runs</option>
+          <option value="pred">Only prediction runs</option>
+          <option value="nopred">Only excluded runs</option>
+        </select>
+      </div>
+      <button class="ghost" onclick="clearRunsFilter()">Clear</button>
+    </div>
+    <div class="meta" id="runsSearchMeta" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
     <h2>Saved runs</h2>
     <table>
       <thead><tr><th>Date</th><th>ET</th><th>Pred.</th><th></th></tr></thead>
@@ -1995,15 +2011,62 @@ function removeRun(i) {
   renderRuns();
 }
 
+let runsSearchTerm = "";
+let runsPredOnly = "all";
+
+function applyRunsFilter() {
+  const searchEl = get("runsSearch");
+  const filterEl = get("runsPredFilter");
+  runsSearchTerm = (searchEl ? searchEl.value : "").toLowerCase().trim();
+  runsPredOnly = filterEl ? filterEl.value : "all";
+  renderRuns();
+}
+
+function clearRunsFilter() {
+  runsSearchTerm = "";
+  runsPredOnly = "all";
+  const searchEl = get("runsSearch");
+  const filterEl = get("runsPredFilter");
+  if (searchEl) searchEl.value = "";
+  if (filterEl) filterEl.value = "all";
+  renderRuns();
+}
+
+function runMatchesFilter(r) {
+  if (runsPredOnly === "pred" && r.include_in_pred === false) return false;
+  if (runsPredOnly === "nopred" && r.include_in_pred !== false) return false;
+  if (!runsSearchTerm) return true;
+  const w = r.weather || {};
+  const hay = [
+    r.date, r.time, r.track, r.ft60, r.et100, r.et18, r.et14,
+    r.mph, r.mph18, r.rt, r.dial_in, r.delay_box,
+    w.temp, w.wind, w.cond, w.hum,
+    Object.entries(r.settings_snapshot || {}).map(([k, v]) => k + " " + v).join(" ")
+  ].filter(Boolean).join(" ").toLowerCase();
+  return hay.includes(runsSearchTerm);
+}
+
 function renderRuns() {
   const tb = get("runsBody");
   if (!tb) return;
   tb.innerHTML = "";
+  const meta = get("runsSearchMeta");
   if (!vehicleRuns.length) {
-    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>Inga runs registrerade ännu för detta fordon. Click \"+ Log individual run\" above.</td></tr>";
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No runs logged for this vehicle yet. Click \"+ Log individual run\" above.</td></tr>";
+    if (meta) meta.textContent = "";
     return;
   }
-  vehicleRuns.forEach((r, i) => {
+  const visible = vehicleRuns.map((r, i) => ({ r, i })).filter(x => runMatchesFilter(x.r));
+  if (meta) {
+    meta.textContent = visible.length === vehicleRuns.length
+      ? vehicleRuns.length + " runs"
+      : visible.length + " of " + vehicleRuns.length + " runs match" + (runsSearchTerm ? " \"" + runsSearchTerm + "\"" : "") + (runsPredOnly !== "all" ? (runsPredOnly === "pred" ? " \u00b7 prediction runs only" : " \u00b7 excluded runs only") : "");
+  }
+  if (!visible.length) {
+    tb.innerHTML = "<tr><td colspan='4' style='color:var(--muted)'>No runs match the current filter.</td></tr>";
+    return;
+  }
+  visible.forEach(({ r, i }) => {
     const w = r.weather || {};
     const hw = w.headwind;
     const included = r.include_in_pred !== false;
@@ -2012,11 +2075,11 @@ function renderRuns() {
     tr.onclick = (e) => { if (!e.target.closest("button")) toggleRunDetails(i); };
     tr.innerHTML = `
       <td>${r.date}${r.time ? ` <span class="muted" style="font-size:.78rem">${r.time}</span>` : ""}</td>
-      <td><strong>${r.et14 ?? r.et18 ?? r.et100 ?? "–"}</strong></td>
-      <td><button class="btn-sm" onclick="event.stopPropagation(); toggleRunInclude(${i})" title="Toggle whether the run is used in prediction" style="${included ? "color:var(--ok)" : "color:var(--muted)"}">${included ? "✓ Yes" : "✕ No"}</button></td>
+      <td><strong>${r.et14 ?? r.et18 ?? r.et100 ?? "\u2013"}</strong></td>
+      <td><button class="btn-sm" onclick="event.stopPropagation(); toggleRunInclude(${i})" title="Toggle whether the run is used in prediction" style="${included ? "color:var(--ok)" : "color:var(--muted)"}">${included ? "\u2713 Yes" : "\u2715 No"}</button></td>
       <td>
-        <button class="btn-sm" onclick="event.stopPropagation(); openRunModal(${i})" title="Edit run">✎</button>
-        <button class="del" onclick="event.stopPropagation(); removeRun(${i})" title="Delete">✕</button>
+        <button class="btn-sm" onclick="event.stopPropagation(); openRunModal(${i})" title="Edit run">\u270e</button>
+        <button class="del" onclick="event.stopPropagation(); removeRun(${i})" title="Delete">\u2715</button>
       </td>`;
     tb.appendChild(tr);
     if (expandedRun === i) {
@@ -2024,40 +2087,37 @@ function renderRuns() {
       dr.className = "part-row-details";
       const snap = r.settings_snapshot || {};
       const snapTxt = Object.keys(snap).length
-        ? Object.entries(snap).map(([k, v]) => `${k}: ${v}`).join(" · ")
+        ? Object.entries(snap).map(([k, v]) => `${k}: ${v}`).join(" \u00b7 ")
         : "No settings snapshot";
       dr.innerHTML = `<td colspan="4">
         <div class="weather-hero">
           <div class="hero-box">
             <div class="hero-label">Density altitude</div>
-            <div class="hero-value">${w.densityAlt !== null && w.densityAlt !== undefined ? w.densityAlt : "–"}</div>
+            <div class="hero-value">${w.densityAlt !== null && w.densityAlt !== undefined ? w.densityAlt : "\u2013"}</div>
             <div class="hero-sub">ft</div>
           </div>
           <div class="hero-box">
             <div class="hero-label">Wind along track</div>
-            <div class="hero-value">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "Calm" : hw > 0 ? "Headwind " + Math.abs(hw).toFixed(1) : "Tailwind " + Math.abs(hw).toFixed(1)) : "–"}</div>
-            <div class="hero-sub">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "no wind along track" : hw > 0 ? "m/s – slower run" : "m/s – faster run") : ""}</div>
+            <div class="hero-value">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "Calm" : hw > 0 ? "Headwind " + Math.abs(hw).toFixed(1) : "Tailwind " + Math.abs(hw).toFixed(1)) : "\u2013"}</div>
+            <div class="hero-sub">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "no wind along track" : hw > 0 ? "m/s \u2013 slower run" : "m/s \u2013 faster run") : ""}</div>
           </div>
         </div>
-        <div class="meta" style="margin:0 0 8px 0">${[w.temp ?? null, (w.hum !== null && w.hum !== undefined) ? "RH " + w.hum + "%" : null, (w.wind !== null && w.wind !== undefined) ? "wind " + w.wind + " m/s" : null, (w.winddir !== null && w.winddir !== undefined) ? "from " + w.winddir + "°" : null, (w.pressure !== null && w.pressure !== undefined) ? w.pressure + " hPa" : null, w.cond || null, r.track || null].filter(x => x !== null).join(" · ")}</div>
+        <div class="meta" style="margin:0 0 8px 0">${[w.temp ?? null, (w.hum !== null && w.hum !== undefined) ? "RH " + w.hum + "%" : null, (w.wind !== null && w.wind !== undefined) ? "wind " + w.wind + " m/s" : null, (w.winddir !== null && w.winddir !== undefined) ? "from " + w.winddir + "\u00b0" : null, (w.pressure !== null && w.pressure !== undefined) ? w.pressure + " hPa" : null, w.cond || null, r.track || null].filter(x => x !== null).join(" \u00b7 ")}</div>
         <div class="timeslip" style="margin:10px 0">
           <div class="ts-header">Time slip</div>
-          <div class="ts-row"><span class="ts-label">Dial-in</span><span class="ts-value">${r.dial_in ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">Delay Box</span><span class="ts-value">${r.delay_box ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">Reaction Time</span><span class="ts-value">${r.rt ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">60 ft</span><span class="ts-value">${r.ft60 ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">330 ft</span><span class="ts-value">${r.et100 ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">660 ft (1/8)</span><span class="ts-value">${r.et18 ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">660 ft Speed</span><span class="ts-value">${(r.mph18 ?? "–")}${r.mph18 ? " km/h" : ""}</span></div>
-          <div class="ts-row"><span class="ts-label">1320 ft (1/4)</span><span class="ts-value">${r.et14 ?? "–"}</span></div>
-          <div class="ts-row"><span class="ts-label">1320 ft Speed</span><span class="ts-value">${(r.mph ?? "–")}${r.mph ? " km/h" : ""}</span></div>
+          <div class="ts-row"><span class="ts-label">Dial-in</span><span class="ts-value">${r.dial_in ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">Delay Box</span><span class="ts-value">${r.delay_box ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">Reaction Time</span><span class="ts-value">${r.rt ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">60 ft</span><span class="ts-value">${r.ft60 ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">330 ft</span><span class="ts-value">${r.et100 ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">660 ft (1/8)</span><span class="ts-value">${r.et18 ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">660 ft Speed</span><span class="ts-value">${(r.mph18 ?? "\u2013")}${r.mph18 ? " km/h" : ""}</span></div>
+          <div class="ts-row"><span class="ts-label">1320 ft (1/4)</span><span class="ts-value">${r.et14 ?? "\u2013"}</span></div>
+          <div class="ts-row"><span class="ts-label">1320 ft Speed</span><span class="ts-value">${(r.mph ?? "\u2013")}${r.mph ? " km/h" : ""}</span></div>
         </div>
         <div class="detail-grid" style="font-size:.85em">
-          <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
-          <div><div class="dl">Temp</div><div class="dv">${w.temp ?? "–"}°C</div></div>
-          <div><div class="dl">Conditions</div><div class="dv">${w.cond || "–"}</div></div>
-          <div><div class="dl">Wind</div><div class="dv">${w.wind ?? "–"} m/s from ${w.winddir ?? "–"}°</div></div>
-          <div><div class="dl">Humidity</div><div class="dv">${w.hum ?? "–"}%</div></div>
+          <div><div class="dl">Track</div><div class="dv">${r.track || "\u2013"}</div></div>
+          <div><div class="dl">Weather source</div><div class="dv">${r.weather_source || "\u2013"}</div></div>
           <div><div class="dl">In prediction</div><div class="dv">${included ? "Yes" : "No"}</div></div>
         </div>
         ${r.photo ? `<img src="${r.photo}" style="max-width:100%;max-height:260px;border-radius:8px;margin-top:10px" alt="Run photo">` : ""}
