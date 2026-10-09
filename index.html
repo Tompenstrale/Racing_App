@@ -545,6 +545,13 @@
     </div>
     <div class="meta" id="run_headwind" style="margin:8px 0 0"></div>
     <button class="ghost" style="margin-top:8px" onclick="fetchWeatherFor('run')">📍 Fetch current weather</button>
+    <h3 style="font-size:.9rem;margin:14px 0 8px">Photo (e.g. time board)</h3>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="run_photo_input" accept="image/*" capture="environment" style="display:none" onchange="onRunPhoto(this)">
+      <button class="ghost" onclick="get('run_photo_input').click()">📷 Take photo / choose image</button>
+      <button class="ghost" id="run_photo_remove" style="display:none" onclick="clearRunPhoto()">✕ Remove photo</button>
+    </div>
+    <img id="run_photo_preview" style="display:none;max-width:100%;max-height:220px;border-radius:8px;margin-top:8px" alt="Run photo">
     <h3 style="font-size:.9rem;margin:14px 0 8px">Settings at time of run</h3>
     <div id="runSettings"></div>
     <div class="field" style="margin-top:12px">
@@ -1287,6 +1294,8 @@ function openRunModal(editIndex) {
     get("run_include").checked = r.include_in_pred !== false;
     get("run_headwind").textContent = w.headwind !== null && w.headwind !== undefined ? headwindText(w.headwind) : "";
     get("runSaveBtn").textContent = "Save changes";
+    runPhotoData = r.photo || null;
+    showRunPhoto();
     renderRunSettingsForRun(r);
     modal.classList.add("open");
   } else {
@@ -1299,6 +1308,8 @@ function openRunModal(editIndex) {
     get("run_include").checked = true;
     get("run_headwind").textContent = "";
     get("runSaveBtn").textContent = "Save run";
+    runPhotoData = null;
+    showRunPhoto();
     renderRunSettings();
     modal.classList.add("open");
     fetchWeatherFor("run");
@@ -1415,6 +1426,48 @@ function weatherName(code) {
 
 let lastWeather = null;
 
+let runPhotoData = null;
+
+function onRunPhoto(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 800;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      runPhotoData = canvas.toDataURL("image/jpeg", 0.7);
+      showRunPhoto();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function showRunPhoto() {
+  const prev = get("run_photo_preview");
+  const rm = get("run_photo_remove");
+  if (runPhotoData) {
+    prev.src = runPhotoData;
+    prev.style.display = "";
+    rm.style.display = "";
+  } else {
+    prev.style.display = "none";
+    rm.style.display = "none";
+  }
+}
+
+function clearRunPhoto() {
+  runPhotoData = null;
+  showRunPhoto();
+}
+
 function saveRun() {
   const date = get("run_date").value;
   if (!date) { alert("Enter date."); return; }
@@ -1454,6 +1507,7 @@ function saveRun() {
       if (res.ok && res.changed) changed.push(k);
     }
   });
+  if (runPhotoData) run.photo = runPhotoData;
   if (editingRunIndex !== null && vehicleRuns[editingRunIndex]) {
     run.settings_snapshot = snapshot;
     vehicleRuns[editingRunIndex] = run;
@@ -1539,6 +1593,7 @@ function renderRuns() {
           <div><div class="dl">Humidity</div><div class="dv">${w.hum ?? "–"}%</div></div>
           <div><div class="dl">In prediction</div><div class="dv">${included ? "Yes" : "No"}</div></div>
         </div>
+        ${r.photo ? `<img src="${r.photo}" style="max-width:100%;max-height:260px;border-radius:8px;margin-top:10px" alt="Run photo">` : ""}
         <div class="detail-history"><b>Settings at time of run:</b> ${snapTxt}</div>
       </td>`;
       tb.appendChild(dr);
