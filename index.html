@@ -562,6 +562,18 @@
 <div class="modal" id="runModal">
   <div class="inner" style="width:min(560px,95vw);max-height:90vh;overflow-y:auto">
     <h3>⏱ Log run</h3>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <input type="file" id="run_photo_input" accept="image/*" capture="environment" style="display:none" onchange="onRunPhoto(this)">
+      <button class="ghost" onclick="get('run_photo_input').click()">📷 Take photo / choose image</button>
+      <button class="ghost" id="run_photo_remove" style="display:none" onclick="clearRunPhoto()">✕ Remove photo</button>
+      <button class="ghost" id="run_photo_scan" style="display:none" onclick="scanRunPhoto()">🔍 Scan times from photo</button>
+    </div>
+    <img id="run_photo_preview" style="display:none;max-width:100%;max-height:220px;border-radius:8px;margin-bottom:12px" alt="Run photo">
+    <h3 style="font-size:.9rem;margin:0 0 8px">Paste time slip text</h3>
+    <div class="field" style="margin-bottom:12px">
+      <textarea id="run_paste" rows="3" placeholder="Paste or type time slip text here, e.g:&#10;R/T 0.128  60ft 1.621  330ft 4.512&#10;1/8 7.812 @ 143.6  1/4 12.205 @ 182.4" style="font-family:monospace;font-size:.85em"></textarea>
+      <button class="ghost" style="margin-top:6px" onclick="parsePastedSlip()">📥 Import text to time slip</button>
+    </div>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
       <div class="field"><label>Date</label><input id="run_date" type="date"></div>
       <div class="field"><label>Time</label><input id="run_time" type="time"></div>
@@ -605,14 +617,6 @@
     <div class="meta" id="run_headwind" style="display:none"></div>
     <button class="ghost" style="margin-top:8px" onclick="fetchWeatherFor('run')">📍 Fetch current weather</button>
     <button class="ghost" style="margin-top:8px" onclick="fetchHistoricalWeather()">🕓 Fetch weather for date/time</button>
-    <h3 style="font-size:.9rem;margin:14px 0 8px">Photo (e.g. time board)</h3>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="file" id="run_photo_input" accept="image/*" capture="environment" style="display:none" onchange="onRunPhoto(this)">
-      <button class="ghost" onclick="get('run_photo_input').click()">📷 Take photo / choose image</button>
-      <button class="ghost" id="run_photo_remove" style="display:none" onclick="clearRunPhoto()">✕ Remove photo</button>
-      <button class="ghost" id="run_photo_scan" style="display:none" onclick="scanRunPhoto()">🔍 Scan times from photo</button>
-    </div>
-    <img id="run_photo_preview" style="display:none;max-width:100%;max-height:220px;border-radius:8px;margin-top:8px" alt="Run photo">
     <h3 style="font-size:.9rem;margin:14px 0 8px">Settings at time of run</h3>
     <div id="runSettings"></div>
     <div class="field" style="margin-top:12px">
@@ -1469,6 +1473,7 @@ function openRunModal(editIndex) {
     get("run_time").value = now.toTimeString().slice(0,5);
     get("run_track").value = lastTrack() || DEFAULT_TRACK;
     ["run_ft60","run_et100","run_et18","run_et14","run_mph18","run_mph","run_rt","run_dial","run_delaybox","run_temp","run_wind","run_winddir","run_hum","run_cond"].forEach(f => get(f).value = "");
+    get("run_paste").value = "";
     get("run_include").checked = true;
     get("run_headwind").textContent = "";
     get("runSaveBtn").textContent = "Save run";
@@ -1807,7 +1812,92 @@ function loadScript(src) {
   });
 }
 
-async function scanRunPhoto() {
+async /* --- Import tid från fritext --- */
+function parsePastedSlip() {
+  const text = get("run_paste").value;
+  if (!text.trim()) { alert("Paste or type the time slip text first."); return; }
+  const clean = text.replace(/O/g, "0").replace(/,/g, ".");
+  const tokens = (clean.match(/\d{1,3}(?:\.\d{1,3})?/g) || []).map(parseFloat);
+  const filled = [];
+  if (!tokens.length) { alert("No numbers found in the text."); return; }
+
+  // Hjälpfunktioner
+  const setVal = (id, val, label, decimals) => {
+    const el = get(id);
+    if (el && !el.value) { el.value = val.toFixed(decimals); filled.push(label + ": " + val.toFixed(decimals)); }
+  };
+
+  // Reaction time: vanligtvis 0.0xx - leta efter "R/T", "RT" eller litet tal med 3 decimaler under 0.5
+  const rtMatch = clean.match(/(?:R\/?T|reaction)\s*[:=]?\s*(0?\.\d{3})/i);
+  if (rtMatch) setVal("run_rt", parseFloat(rtMatch[1]), "Reaction Time", 3);
+  else {
+    const rtCandidates = tokens.filter(v => v > 0 && v < 0.5);
+    if (rtCandidates.length) setVal("run_rt", rtCandidates[0], "Reaction Time", 3);
+  }
+
+  // Dial-in: leta efter "dial" i texten
+  const dialMatch = clean.match(/dial[\s-]*in\s*[:=]?\s*(\d{1,2}\.\d{1,3})/i);
+  if (dialMatch) setVal("run_dial", parseFloat(dialMatch[1]), "Dial-in", 3);
+
+  // Delay box: leta efter "delay"
+  const delayMatch = clean.match(/delay(?:\s*box)?\s*[:=]?\s*(0?\.\d{3})/i);
+  if (delayMatch) setVal("run_delaybox", parseFloat(delayMatch[1]), "Delay Box", 3);
+
+  // Tider och speeds via etikett-matchning först (mest tillförlitligt)
+  const labelPatterns = [
+    { id: "run_ft60", label: "60 ft", re: /(?:60\s*f|60ft)\s*[:=]?\s*(\d\.\d{1,3})/i },
+    { id: "run_et100", label: "330 ft", re: /(?:330|1\/16)\s*f?\s*[:=]?\s*(\d{1,2}\.\d{1,3})/i },
+    { id: "run_et18", label: "660 ft (1/8)", re: /(?:660|1\/8|1\/8th|eighth)\s*f?\s*[:=]?\s*(\d{1,2}\.\d{1,3})/i },
+    { id: "run_et14", label: "1320 ft (1/4)", re: /(?:1320|1\/4|quarter)\s*f?\s*[:=]?\s*(\d{1,2}\.\d{1,3})/i },
+    { id: "run_mph18", label: "660 ft Speed", re: /(?:660|1\/8)\s*(?:mph|km\/h|speed)?\s*@?\s*(\d{2,3}(?:\.\d)?)/i },
+    { id: "run_mph", label: "1320 ft Speed", re: /(?:1320|1\/4|quarter)\s*(?:mph|km\/h|speed)?\s*@?\s*(\d{2,3}(?:\.\d)?)/i }
+  ];
+  labelPatterns.forEach(p => {
+    const m = clean.match(p.re);
+    if (m) setVal(p.id, parseFloat(m[1]), p.label, 3);
+  });
+
+  // Fallback: etikettlös tolkning av kvarvarande tider (som OCR-logiken)
+  const times = tokens.filter(v => v >= 0.8 && v <= 30 && v.toString().includes("."));
+  const speeds = tokens.filter(v => v >= 60 && v <= 300);
+  const etCandidates = times.filter(v => v >= 3.0 && v <= 25);
+  if (etCandidates.length >= 3) {
+    const sorted = etCandidates.slice().sort((a, b) => b - a);
+    setVal("run_et14", sorted[0], "1320 ft (1/4)", 3);
+    setVal("run_et18", sorted[1], "660 ft (1/8)", 3);
+    setVal("run_et100", sorted[2], "330 ft", 3);
+    const ft = times.filter(v => v >= 0.8 && v < 3.0);
+    if (ft.length) setVal("run_ft60", Math.min(...ft), "60 ft", 3);
+  } else if (etCandidates.length === 2) {
+    const sorted = etCandidates.slice().sort((a, b) => b - a);
+    if (sorted[0] >= 9) setVal("run_et14", sorted[0], "1320 ft (1/4)", 3);
+    setVal("run_et18", sorted[1], "660 ft (1/8)", 3);
+    const ft = times.filter(v => v >= 0.8 && v < 3.0);
+    if (ft.length) setVal("run_ft60", Math.min(...ft), "60 ft", 3);
+  } else if (etCandidates.length === 1) {
+    const v = etCandidates[0];
+    if (v >= 9) setVal("run_et14", v, "1320 ft (1/4)", 3);
+    else setVal("run_et18", v, "660 ft (1/8)", 3);
+    const ft = times.filter(v => v >= 0.8 && v < 3.0);
+    if (ft.length) setVal("run_ft60", Math.min(...ft), "60 ft", 3);
+  }
+  if (speeds.length >= 2) {
+    const sortedS = speeds.slice().sort((a, b) => a - b);
+    setVal("run_mph18", sortedS[0], "660 ft Speed", 1);
+    setVal("run_mph", sortedS[sortedS.length - 1], "1320 ft Speed", 1);
+  } else if (speeds.length === 1) {
+    if (get("run_et18").value && !get("run_et14").value) setVal("run_mph18", speeds[0], "660 ft Speed", 1);
+    else setVal("run_mph", speeds[0], "1320 ft Speed", 1);
+  }
+
+  if (filled.length) {
+    alert("Imported:\n" + filled.join("\n") + "\n\nCheck the time slip and adjust if needed.");
+  } else {
+    alert("Could not interpret any values. Try a format like:\nR/T 0.128  60ft 1.621  330ft 4.512\n1/8 7.812 @ 143.6  1/4 12.205 @ 182.4");
+  }
+}
+
+function scanRunPhoto() {
   if (!runPhotoData) return;
   const btn = get("run_photo_scan");
   btn.disabled = true;
