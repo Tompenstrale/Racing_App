@@ -1398,11 +1398,11 @@ function renderRunSettings() {
 /* bearing = körriktning startlinje→mållinje i grader (0=nord, 90=öst, 180=syd, 270=väst).
    Justera efter banans verkliga riktning. */
 const TRACKS = [
-  { name: "Tierp Arena", lat: 59.87, lon: 17.51, bearing: 15 },
-  { name: "Sundsvall Raceway", lat: 62.44, lon: 17.35, bearing: 120 },
-  { name: "Mantorp Park", lat: 58.51, lon: 15.21, bearing: 105 },
-  { name: "Malmö Raceway", lat: 55.55, lon: 13.07, bearing: 200 },
-  { name: "Övrig/egen bana", lat: 59.33, lon: 18.07, bearing: 0 }
+  { name: "Tierp Arena", lat: 59.87, lon: 17.51, bearing: 15, alt: 30 },
+  { name: "Sundsvall Raceway", lat: 62.44, lon: 17.35, bearing: 120, alt: 10 },
+  { name: "Mantorp Park", lat: 58.51, lon: 15.21, bearing: 105, alt: 110 },
+  { name: "Malmö Raceway", lat: 55.55, lon: 13.07, bearing: 200, alt: 15 },
+  { name: "Övrig/egen bana", lat: 59.33, lon: 18.07, bearing: 0, alt: 0 }
 ];
 const DEFAULT_TRACK = "Tierp Arena";
 
@@ -1440,6 +1440,33 @@ function headwindText(hw) {
   return (hw > 0 ? "headwind " : "tailwind ") + Math.abs(hw).toFixed(1) + " m/s along track";
 }
 
+/* --- Density Altitude (ft) --- 
+   DA = station altitude + temperature deviation effect.
+   Approximation (mostly track-level): DA(ft) = 145122 * (1 - (17.326 * P / T_R)^0.235)
+   P = station pressure in inHg, T_R = Rankine (F + 459.67).
+   Track altitude is small in Sweden (<100 m), so we use QNH-derived station pressure:
+   P_inHg = (QNH_hPa - altitude_m*0.02953*0.3386) ... simplified: use QNH directly at low altitudes.
+   Open-Meteo surface_pressure is in hPa – use when available. */
+function densityAltitudeFt(tempC, pressureHpa, humidityPct, altitudeM) {
+  if (tempC === null || tempC === undefined || pressureHpa === null || pressureHpa === undefined) return null;
+  const altM = altitudeM || 0;
+  // Station pressure: standard atmosfär-minskning ~1.2 hPa per 10 m
+  const stationP = pressureHpa - (altM / 10) * 1.2;
+  const pInHg = stationP * 0.02953;
+  // Vapor pressure (Arden Buck) för fuktighetens inverkan
+  let tF = tempC * 9/5 + 32;
+  let esHpa = 6.1121 * Math.exp((18.87 * tempC) / (tempC + 257.14)); // hPa, Buck-formel
+  let hum = humidityPct;
+  if (hum === null || hum === undefined || isNaN(hum)) hum = 50;
+  hum = Math.max(0, Math.min(100, hum));
+  const vaporHpa = esHpa * (hum / 100);
+  const vaporInHg = vaporHpa * 0.02953;
+  const dryP = pInHg - vaporInHg;
+  const tR = (tempC * 9/5 + 32) + 459.67;
+  const da = 145366 * (1 - Math.pow(17.326 * dryP / tR, 0.235));
+  return Math.round(da);
+}
+
 function fetchWeatherFor(prefix) {
   const setFields = (w) => {
     if (prefix === "run") {
@@ -1449,12 +1476,12 @@ function fetchWeatherFor(prefix) {
       get("run_cond").value = w.cond;
       get("run_winddir").value = w.windDir ?? "";
       const hwEl = get("run_headwind");
-      if (hwEl) hwEl.textContent = headwindText(w.headwind);
+      if (hwEl) hwEl.textContent = (headwindText(w.headwind) || "") + (w.densityAlt !== null && w.densityAlt !== undefined ? " · DA " + w.densityAlt + " ft" : "");
     }
   };
   const trackEl = prefix === "run" ? get("run_track") : get("predTrack");
   const track = trackByName(trackEl ? trackEl.value : DEFAULT_TRACK);
-  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${track.lat}&longitude=${track.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code`)
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${track.lat}&longitude=${track.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code`)
     .then(r => r.json())
     .then(j => {
       const c = j.current || {};
@@ -1465,7 +1492,9 @@ function fetchWeatherFor(prefix) {
         cond: weatherName(c.weather_code),
         track: track.name,
         windDir: c.wind_direction_10m ?? null,
-        headwind: headwindComponent(c.wind_speed_10m, c.wind_direction_10m, track.bearing)
+        headwind: headwindComponent(c.wind_speed_10m, c.wind_direction_10m, track.bearing),
+        pressure: c.surface_pressure ?? null,
+        densityAlt: densityAltitudeFt(c.temperature_2m, c.surface_pressure, c.relative_humidity_2m, track.alt)
       };
       lastWeather = w;
       setFields(w);
@@ -1677,7 +1706,11 @@ function saveRun() {
         ? headwindComponent(parseFloat(get("run_wind").value), parseFloat(get("run_winddir").value), trackByName(get("run_track").value).bearing)
         : null,
       hum: get("run_hum").value || null,
-      cond: get("run_cond").value || null
+      cond: get("run_cond").value || null,
+      pressure: (lastWeather && lastWeather.track === get("run_track").value) ? (lastWeather.pressure ?? null) : null,
+      densityAlt: (lastWeather && lastWeather.track === get("run_track").value && get("run_temp").value && get("run_hum").value)
+        ? densityAltitudeFt(parseFloat(get("run_temp").value), lastWeather.pressure, parseFloat(get("run_hum").value), trackByName(get("run_track").value).alt)
+        : null
     }
   };
   const snapshot = {};
@@ -1780,6 +1813,7 @@ function renderRuns() {
           <div><div class="dl">Wind</div><div class="dv">${w.wind ?? "–"} m/s from ${w.winddir ?? "–"}°</div></div>
           <div><div class="dl">Head/tailwind</div><div class="dv">${hw !== null && hw !== undefined ? headwindText(hw) : "–"}</div></div>
           <div><div class="dl">Humidity</div><div class="dv">${w.hum ?? "–"}%</div></div>
+          <div><div class="dl">Density altitude</div><div class="dv">${w.densityAlt !== null && w.densityAlt !== undefined ? w.densityAlt + " ft" : "–"}</div></div>
           <div><div class="dl">In prediction</div><div class="dv">${included ? "Yes" : "No"}</div></div>
         </div>
         ${r.photo ? `<img src="${r.photo}" style="max-width:100%;max-height:260px;border-radius:8px;margin-top:10px" alt="Run photo">` : ""}
