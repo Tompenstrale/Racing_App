@@ -1510,10 +1510,10 @@ function updateWeatherHero(prefix, w) {
   if (daEl) daEl.textContent = (w.densityAlt !== null && w.densityAlt !== undefined) ? w.densityAlt : "–";
   if (hwEl) {
     const hw = w.headwind;
-    if (hw === null || hw === undefined || isNaN(hw)) hwEl.textContent = "–";
-    else if (Math.abs(hw) < 0.1) hwEl.textContent = "0";
-    else hwEl.textContent = (hw > 0 ? "+" : "−") + Math.abs(hw).toFixed(1);
-    if (hwSub) hwSub.textContent = (hw === null || hw === undefined || isNaN(hw)) ? "along track" : (hw > 0.1 ? "headwind, along track" : hw < -0.1 ? "tailwind, along track" : "neutral, along track");
+    if (hw === null || hw === undefined || isNaN(hw)) { hwEl.textContent = "–"; if (hwSub) hwSub.textContent = ""; }
+    else if (Math.abs(hw) < 0.1) { hwEl.textContent = "Calm"; if (hwSub) hwSub.textContent = "no wind along track"; }
+    else if (hw > 0) { hwEl.textContent = "Headwind " + Math.abs(hw).toFixed(1); if (hwSub) hwSub.textContent = "m/s – slower run"; }
+    else { hwEl.textContent = "Tailwind " + Math.abs(hw).toFixed(1); if (hwSub) hwSub.textContent = "m/s – faster run"; }
   }
 }
 
@@ -1861,9 +1861,9 @@ function renderRuns() {
             <div class="hero-sub">ft</div>
           </div>
           <div class="hero-box">
-            <div class="hero-label">Head / tailwind</div>
-            <div class="hero-value">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "0" : (hw > 0 ? "+" : "−") + Math.abs(hw).toFixed(1)) : "–"}</div>
-            <div class="hero-sub">${hw !== null && hw !== undefined && !isNaN(hw) ? (hw > 0.1 ? "headwind, along track" : hw < -0.1 ? "tailwind, along track" : "neutral, along track") : "along track"}</div>
+            <div class="hero-label">Wind along track</div>
+            <div class="hero-value">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "Calm" : hw > 0 ? "Headwind " + Math.abs(hw).toFixed(1) : "Tailwind " + Math.abs(hw).toFixed(1)) : "–"}</div>
+            <div class="hero-sub">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "no wind along track" : hw > 0 ? "m/s – slower run" : "m/s – faster run") : ""}</div>
           </div>
         </div>
         <div class="detail-grid" style="font-size:.85em">
