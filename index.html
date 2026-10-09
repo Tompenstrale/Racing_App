@@ -107,13 +107,12 @@
     background: var(--bg); padding: 10px 0;
   }
   .applogo {
-    position: fixed; top: 8px; right: 10px;
-    width: 48px; height: 48px; object-fit: contain;
-    z-index: 30; pointer-events: none;
+    width: 64px; height: 64px; object-fit: contain;
+    margin-left: auto;
     border-radius: 8px;
   }
   @media (max-width: 600px) {
-    .applogo { width: 36px; height: 36px; top: 6px; right: 8px; }
+    .applogo { width: 48px; height: 48px; }
   }
   .viewbtn {
     background: var(--card); color: var(--muted); border: 1px solid var(--border);
@@ -175,12 +174,11 @@
 </head>
 <body>
 
-<img class="applogo" src="logo.png" alt="RacingApp logo">
-
 <div class="viewnav">
   <button class="viewbtn active" id="viewbtn-garage" onclick="showView('garage')">🔧 Garage</button>
   <button class="viewbtn" id="viewbtn-runs" onclick="showView('runs')">⏱ Runs</button>
   <button class="viewbtn" id="viewbtn-pred" onclick="showView('pred')">📊 Prediction</button>
+  <img class="applogo" src="logo.png" alt="RacingApp logo">
 </div>
 
 <div id="viewGarage">
