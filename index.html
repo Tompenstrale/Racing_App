@@ -560,15 +560,15 @@
       <div class="field"><label>Track</label>
         <select id="run_track" onchange="fillRunWeatherHint()"></select>
       </div>
-      <div class="field"><label>60-ft (s)</label><input id="run_ft60" type="number" step="0.001"></div>
-      <div class="field"><label>100 m ET (s)</label><input id="run_et100" type="number" step="0.001"></div>
-      <div class="field"><label>201 m (1/8) ET (s)</label><input id="run_et18" type="number" step="0.001"></div>
-      <div class="field"><label>402 m (1/4) ET (s)</label><input id="run_et14" type="number" step="0.001"></div>
-      <div class="field"><label>Trap speed 201 m (km/h)</label><input id="run_mph18" type="number" step="0.1"></div>
-      <div class="field"><label>Trap speed 402 m (km/h)</label><input id="run_mph" type="number" step="0.1"></div>
-      <div class="field"><label>Reaction time (s)</label><input id="run_rt" type="number" step="0.001"></div>
+      <div class="field"><label>Delay Box (s)</label><input id="run_delaybox" type="number" step="0.001"></div>
+      <div class="field"><label>Reaction Time (s)</label><input id="run_rt" type="number" step="0.001"></div>
+      <div class="field"><label>60 ft (s)</label><input id="run_ft60" type="number" step="0.001"></div>
+      <div class="field"><label>330 ft (s)</label><input id="run_et100" type="number" step="0.001"></div>
+      <div class="field"><label>660 ft (1/8) (s)</label><input id="run_et18" type="number" step="0.001"></div>
+      <div class="field"><label>660 ft Speed (km/h)</label><input id="run_mph18" type="number" step="0.1"></div>
+      <div class="field"><label>1320 ft (1/4) (s)</label><input id="run_et14" type="number" step="0.001"></div>
+      <div class="field"><label>1320 ft Speed (km/h)</label><input id="run_mph" type="number" step="0.1"></div>
       <div class="field"><label>Dial-in (s)</label><input id="run_dial" type="number" step="0.001"></div>
-      <div class="field"><label>Delay box (s)</label><input id="run_delaybox" type="number" step="0.001"></div>
     </div>
     <h3 style="font-size:.9rem;margin:14px 0 8px">Weather</h3>
     <div class="weather-hero">
@@ -1814,34 +1814,34 @@ function fillTimesFromText(text) {
 
   if (!get("run_ft60").value) {
     const ft = times.filter(v => v >= 0.8 && v < 3.0);
-    if (ft.length) { get("run_ft60").value = Math.min(...ft).toFixed(3); filled.push("60-ft: " + Math.min(...ft).toFixed(3)); }
+    if (ft.length) { get("run_ft60").value = Math.min(...ft).toFixed(3); filled.push("60 ft: " + Math.min(...ft).toFixed(3)); }
   }
   const etCandidates = times.filter(v => v >= 3.0 && v <= 25);
   if (etCandidates.length >= 3) {
     const sorted = etCandidates.slice().sort((a, b) => b - a);
-    if (!get("run_et14").value) { get("run_et14").value = sorted[0].toFixed(3); filled.push("402 m (1/4): " + sorted[0].toFixed(3)); }
-    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("201 m (1/8): " + sorted[1].toFixed(3)); }
-    if (!get("run_et100").value && sorted[2] >= 3 && sorted[2] <= 12) { get("run_et100").value = sorted[2].toFixed(3); filled.push("100 m: " + sorted[2].toFixed(3)); }
+    if (!get("run_et14").value) { get("run_et14").value = sorted[0].toFixed(3); filled.push("1320 ft (1/4): " + sorted[0].toFixed(3)); }
+    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("660 ft (1/8): " + sorted[1].toFixed(3)); }
+    if (!get("run_et100").value && sorted[2] >= 3 && sorted[2] <= 12) { get("run_et100").value = sorted[2].toFixed(3); filled.push("330 ft: " + sorted[2].toFixed(3)); }
   } else if (etCandidates.length === 2) {
     const sorted = etCandidates.slice().sort((a, b) => b - a);
-    if (!get("run_et14").value && sorted[0] >= 9) { get("run_et14").value = sorted[0].toFixed(3); filled.push("402 m (1/4): " + sorted[0].toFixed(3)); }
-    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("201 m (1/8): " + sorted[1].toFixed(3)); }
+    if (!get("run_et14").value && sorted[0] >= 9) { get("run_et14").value = sorted[0].toFixed(3); filled.push("1320 ft (1/4): " + sorted[0].toFixed(3)); }
+    if (!get("run_et18").value && sorted[1] >= 3 && sorted[1] <= 15) { get("run_et18").value = sorted[1].toFixed(3); filled.push("660 ft (1/8): " + sorted[1].toFixed(3)); }
   } else if (etCandidates.length === 1) {
     const v = etCandidates[0];
-    if (!get("run_et14").value && v >= 9) { get("run_et14").value = v.toFixed(3); filled.push("402 m (1/4): " + v.toFixed(3)); }
-    else if (!get("run_et18").value && v < 9 && v >= 4) { get("run_et18").value = v.toFixed(3); filled.push("201 m (1/8): " + v.toFixed(3)); }
-    else if (!get("run_et100").value && v < 4) { get("run_et100").value = v.toFixed(3); filled.push("100 m: " + v.toFixed(3)); }
+    if (!get("run_et14").value && v >= 9) { get("run_et14").value = v.toFixed(3); filled.push("1320 ft (1/4): " + v.toFixed(3)); }
+    else if (!get("run_et18").value && v < 9 && v >= 4) { get("run_et18").value = v.toFixed(3); filled.push("660 ft (1/8): " + v.toFixed(3)); }
+    else if (!get("run_et100").value && v < 4) { get("run_et100").value = v.toFixed(3); filled.push("330 ft: " + v.toFixed(3)); }
   }
   if (speeds.length >= 2) {
     const sortedS = speeds.slice().sort((a, b) => a - b);
-    if (!get("run_mph18").value) { get("run_mph18").value = sortedS[0].toFixed(1); filled.push("Trap speed 201 m: " + sortedS[0].toFixed(1)); }
-    if (!get("run_mph").value) { get("run_mph").value = sortedS[sortedS.length - 1].toFixed(1); filled.push("Trap speed 402 m: " + sortedS[sortedS.length - 1].toFixed(1)); }
+    if (!get("run_mph18").value) { get("run_mph18").value = sortedS[0].toFixed(1); filled.push("660 ft Speed: " + sortedS[0].toFixed(1)); }
+    if (!get("run_mph").value) { get("run_mph").value = sortedS[sortedS.length - 1].toFixed(1); filled.push("1320 ft Speed: " + sortedS[sortedS.length - 1].toFixed(1)); }
   } else if (speeds.length === 1) {
     if (!get("run_mph").value && !get("run_et14").value && !get("run_mph18").value) {
       // bara en fart + bara 1/8 ET -> trap gäller 201 m
-      if (get("run_et18").value && !get("run_et14").value) { get("run_mph18").value = speeds[0].toFixed(1); filled.push("Trap speed 201 m: " + speeds[0].toFixed(1)); }
-      else { get("run_mph").value = speeds[0].toFixed(1); filled.push("Trap speed 402 m: " + speeds[0].toFixed(1)); }
-    } else if (!get("run_mph").value) { get("run_mph").value = speeds[0].toFixed(1); filled.push("Trap speed 402 m: " + speeds[0].toFixed(1)); }
+      if (get("run_et18").value && !get("run_et14").value) { get("run_mph18").value = speeds[0].toFixed(1); filled.push("660 ft Speed: " + speeds[0].toFixed(1)); }
+      else { get("run_mph").value = speeds[0].toFixed(1); filled.push("1320 ft Speed: " + speeds[0].toFixed(1)); }
+    } else if (!get("run_mph").value) { get("run_mph").value = speeds[0].toFixed(1); filled.push("1320 ft Speed: " + speeds[0].toFixed(1)); }
   }
   if (runPhotoMeta) {
     if (filled.length || true) { get("run_date").value = runPhotoMeta.date; get("run_time").value = runPhotoMeta.time; }
@@ -2031,15 +2031,15 @@ function renderRuns() {
         <div class="meta" style="margin:0 0 8px 0">${[w.temp ?? null, (w.hum !== null && w.hum !== undefined) ? "RH " + w.hum + "%" : null, (w.wind !== null && w.wind !== undefined) ? "wind " + w.wind + " m/s" : null, (w.winddir !== null && w.winddir !== undefined) ? "from " + w.winddir + "°" : null, (w.pressure !== null && w.pressure !== undefined) ? w.pressure + " hPa" : null, w.cond || null, r.track || null].filter(x => x !== null).join(" · ")}</div>
         <div class="detail-grid" style="font-size:.85em">
           <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
-          <div><div class="dl">60-ft</div><div class="dv">${r.ft60 ?? "–"}</div></div>
-          <div><div class="dl">100 m</div><div class="dv">${r.et100 ?? "–"}</div></div>
-          <div><div class="dl">201 m (1/8)</div><div class="dv">${r.et18 ?? "–"}</div></div>
-          <div><div class="dl">402 m (1/4)</div><div class="dv">${r.et14 ?? "–"}</div></div>
-          <div><div class="dl">Trap speed 201 m</div><div class="dv">${r.mph18 ?? "–"} km/h</div></div>
-          <div><div class="dl">Trap speed 402 m</div><div class="dv">${r.mph ?? "–"} km/h</div></div>
-          <div><div class="dl">Reaction time</div><div class="dv">${r.rt ?? "–"}</div></div>
+          <div><div class="dl">Delay Box</div><div class="dv">${r.delay_box ?? "–"}</div></div>
+          <div><div class="dl">Reaction Time</div><div class="dv">${r.rt ?? "–"}</div></div>
+          <div><div class="dl">60 ft</div><div class="dv">${r.ft60 ?? "–"}</div></div>
+          <div><div class="dl">330 ft</div><div class="dv">${r.et100 ?? "–"}</div></div>
+          <div><div class="dl">660 ft (1/8)</div><div class="dv">${r.et18 ?? "–"}</div></div>
+          <div><div class="dl">660 ft Speed</div><div class="dv">${r.mph18 ?? "–"} km/h</div></div>
+          <div><div class="dl">1320 ft (1/4)</div><div class="dv">${r.et14 ?? "–"}</div></div>
+          <div><div class="dl">1320 ft Speed</div><div class="dv">${r.mph ?? "–"} km/h</div></div>
           <div><div class="dl">Dial-in</div><div class="dv">${r.dial_in ?? "–"}</div></div>
-          <div><div class="dl">Delay box</div><div class="dv">${r.delay_box ?? "–"}</div></div>
           <div><div class="dl">Temp</div><div class="dv">${w.temp ?? "–"}°C</div></div>
           <div><div class="dl">Conditions</div><div class="dv">${w.cond || "–"}</div></div>
           <div><div class="dl">Wind</div><div class="dv">${w.wind ?? "–"} m/s from ${w.winddir ?? "–"}°</div></div>
@@ -2082,10 +2082,10 @@ function renderPredNow(w) {
   if (!el) return;
   if (!w) { el.innerHTML = "Weather unavailable – prediction will show once weather is fetched."; meta.textContent = ""; return; }
   const dists = [
-    { key: "ft60", label: "60-ft", wind: 0.002 },
-    { key: "et100", label: "100 m", wind: 0.004 },
-    { key: "et18", label: "201 m (1/8)", wind: 0.007 },
-    { key: "et14", label: "402 m (1/4)", wind: 0.010 }
+    { key: "ft60", label: "60 ft", wind: 0.002 },
+    { key: "et100", label: "330 ft", wind: 0.004 },
+    { key: "et18", label: "660 ft (1/8)", wind: 0.007 },
+    { key: "et14", label: "1320 ft (1/4)", wind: 0.010 }
   ];
   const slip = get("predGrid");
   let rows = "";
@@ -2513,7 +2513,7 @@ function loadDemo() {
       { group: "Barer & placering", name: "Övre barer längd", value: "24\" hål 1", note: "Samma vänster/höger" },
       { group: "Barer & placering", name: "Undre barer chassifäste", value: "Nedre hål", note: "Mer antisquat" },
       { group: "Instant Center & antisquat", name: "Instant Center (IC)", value: "54\" framför bakaxel, 4.2\" hög", note: "Beräknad vid ride height" },
-      { group: "Instant Center & antisquat", name: "Antisquat", value: "120%", note: "Öka till 130% om 60-ft sviktar" },
+      { group: "Instant Center & antisquat", name: "Antisquat", value: "120%", note: "Öka till 130% om 60 ft sviktar" },
       { group: "Ride height & fjädring", name: "Ride height bak", value: "3.5\" vid ramkanten", note: "Mät kall, utan förare justerad" },
       { group: "Ride height & fjädring", name: "Fjäderförspänning bak", value: "2 varv förspänning", note: "Kontrollera efter var 5:e repa" },
       { group: "Dämpare", name: "Stötdämpare tryck/retur", value: "12 klick tryck / 8 retur", note: "Öka tryck vid vägghård bana" }
