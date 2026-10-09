@@ -555,6 +555,7 @@
         <div class="hero-sub" id="run_hw_sub">along track</div>
       </div>
     </div>
+    <div class="meta" id="run_weather_full" style="margin:0 0 10px 0"></div>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(105px,1fr));font-size:.85em">
       <div class="field"><label>Temp (°C)</label><input id="run_temp" type="number" step="0.1"></div>
       <div class="field"><label>Wind (m/s)</label><input id="run_wind" type="number" step="0.1"></div>
@@ -683,6 +684,7 @@
         <div class="hero-sub" id="pred_hw_sub">along track</div>
       </div>
     </div>
+    <div class="meta" id="pred_weather_full" style="margin:0 0 10px 0"></div>
     <div class="dash-top" id="predNow">Fetching weather…</div>
     <div class="meta" id="predNowMeta" style="margin-top:0"></div>
   </div>
@@ -1384,7 +1386,17 @@ function openRunModal(editIndex) {
     runPhotoData = r.photo || null;
     runPhotoMeta = r.photo_meta || null;
     showRunPhoto();
-    updateWeatherHero("run", { densityAlt: (r.weather || {}).densityAlt ?? null, headwind: (r.weather || {}).headwind ?? null });
+    updateWeatherHero("run", {
+      densityAlt: (r.weather || {}).densityAlt ?? null,
+      headwind: (r.weather || {}).headwind ?? null,
+      temp: (r.weather || {}).temp ?? null,
+      hum: (r.weather || {}).hum ?? null,
+      wind: (r.weather || {}).wind ?? null,
+      windDir: (r.weather || {}).winddir ?? null,
+      pressure: (r.weather || {}).pressure ?? null,
+      cond: (r.weather || {}).cond ?? null,
+      track: r.track ?? null
+    });
     renderRunSettingsForRun(r);
     modal.classList.add("open");
   } else {
@@ -1514,6 +1526,18 @@ function updateWeatherHero(prefix, w) {
     else if (Math.abs(hw) < 0.1) { hwEl.textContent = "Calm"; if (hwSub) hwSub.textContent = "no wind along track"; }
     else if (hw > 0) { hwEl.textContent = "Headwind " + Math.abs(hw).toFixed(1); if (hwSub) hwSub.textContent = "m/s – slower run"; }
     else { hwEl.textContent = "Tailwind " + Math.abs(hw).toFixed(1); if (hwSub) hwSub.textContent = "m/s – faster run"; }
+  }
+  const fullEl = get(p + "_weather_full");
+  if (fullEl && w) {
+    const bits = [];
+    if (w.temp !== null && w.temp !== undefined && w.temp !== "") bits.push(w.temp + "°C");
+    if (w.hum !== null && w.hum !== undefined && w.hum !== "") bits.push("RH " + w.hum + "%");
+    if (w.wind !== null && w.wind !== undefined && w.wind !== "") bits.push("wind " + w.wind + " m/s");
+    if (w.windDir !== null && w.windDir !== undefined) bits.push("from " + w.windDir + "°");
+    if (w.pressure !== null && w.pressure !== undefined) bits.push(w.pressure + " hPa");
+    if (w.cond) bits.push(w.cond);
+    if (w.track) bits.push("@ " + w.track);
+    fullEl.textContent = bits.join(" · ");
   }
 }
 
@@ -1866,6 +1890,7 @@ function renderRuns() {
             <div class="hero-sub">${hw !== null && hw !== undefined && !isNaN(hw) ? (Math.abs(hw) < 0.1 ? "no wind along track" : hw > 0 ? "m/s – slower run" : "m/s – faster run") : ""}</div>
           </div>
         </div>
+        <div class="meta" style="margin:0 0 8px 0">${[w.temp ?? null, (w.hum !== null && w.hum !== undefined) ? "RH " + w.hum + "%" : null, (w.wind !== null && w.wind !== undefined) ? "wind " + w.wind + " m/s" : null, (w.winddir !== null && w.winddir !== undefined) ? "from " + w.winddir + "°" : null, (w.pressure !== null && w.pressure !== undefined) ? w.pressure + " hPa" : null, w.cond || null, r.track || null].filter(x => x !== null).join(" · ")}</div>
         <div class="detail-grid" style="font-size:.85em">
           <div><div class="dl">Track</div><div class="dv">${r.track || "–"}</div></div>
           <div><div class="dl">60-ft</div><div class="dv">${r.ft60 ?? "–"}</div></div>
