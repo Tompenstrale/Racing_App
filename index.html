@@ -823,7 +823,7 @@ function addSpec() {
   renderSpecs();
 }
 
-function removeSpec(i) { engineSpecs.splice(i, 1); renderSpecs(); }
+function removeSpec(i) { engineSpecs.splice(i, 1); renderSpecs(); save(true); }
 
 function renderSetups() {
   const tb = get("setupBody");
@@ -859,7 +859,7 @@ function addSetup() {
   renderSetups();
 }
 
-function removeSetup(i) { engineSetups.splice(i, 1); renderSetups(); }
+function removeSetup(i) { engineSetups.splice(i, 1); renderSetups(); save(true); }
 
 function showTab(t) {
   get("paneSpec").style.display = t === "spec" ? "" : "none";
@@ -943,7 +943,7 @@ function addTSpec() {
   renderTSpecs();
 }
 
-function removeTSpec(i) { transSpecs.splice(i, 1); renderTSpecs(); }
+function removeTSpec(i) { transSpecs.splice(i, 1); renderTSpecs(); save(true); }
 
 function renderTSetups() {
   const tb = get("tsetupBody");
@@ -979,7 +979,7 @@ function addTSetup() {
   renderTSetups();
 }
 
-function removeTSetup(i) { transSetups.splice(i, 1); renderTSetups(); }
+function removeTSetup(i) { transSetups.splice(i, 1); renderTSetups(); save(true); }
 
 function showTTab(t) {
   get("paneTspec").style.display = t === "tspec" ? "" : "none";
@@ -1042,7 +1042,7 @@ function addASpec() {
   renderASpecs();
 }
 
-function removeASpec(i) { axleSpecs.splice(i, 1); renderASpecs(); }
+function removeASpec(i) { axleSpecs.splice(i, 1); renderASpecs(); save(true); }
 
 function renderFSetups() {
   const tb = get("fsetupBody");
@@ -1078,7 +1078,7 @@ function addFSetup() {
   renderFSetups();
 }
 
-function removeFSetup(i) { fourLinkSetups.splice(i, 1); renderFSetups(); }
+function removeFSetup(i) { fourLinkSetups.splice(i, 1); renderFSetups(); save(true); }
 
 function showATab() { get("tabAspec").classList.add("active"); }
 function showFTab() { get("tabFsetup").classList.add("active"); }
@@ -2079,7 +2079,7 @@ function addPart() {
 function bumpPart(i) { parts[i].races++; renderParts(); renderDashboard(); }
 
 function removePart(i) {
-  if (confirm("Remove \"" + parts[i].name + "\"?")) { parts.splice(i, 1); renderParts(); renderDashboard(); }
+  if (confirm("Remove \"" + parts[i].name + "\"?")) { parts.splice(i, 1); renderParts(); renderDashboard(); save(true); }
 }
 
 function openService(i) {
@@ -2489,8 +2489,15 @@ function clearAll() {
   } else load({});
 }
 
-FIELDS.filter(f => ["inspection_valid_until","insurance_valid_until","next_service_date"].includes(f))
-  .forEach(f => get(f).addEventListener("change", renderAlerts));
+FIELDS.forEach(f => {
+  const el = get(f);
+  if (!el) return;
+  if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "date") {
+    el.addEventListener("change", () => { save(true); if (["inspection_valid_until","insurance_valid_until","next_service_date"].includes(f)) renderAlerts(); if (f === "tr_type") { transType = el.value; fillGroupSelects(); renderTSpecs(); renderTSetups(); } });
+  } else {
+    el.addEventListener("change", () => { save(true); if (f === "name") updateIdentName(); });
+  }
+});
 get("name").addEventListener("input", updateIdentName);
 window.addEventListener("beforeunload", () => { try { save(true); } catch(e) {} });
 
