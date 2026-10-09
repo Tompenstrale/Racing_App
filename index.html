@@ -166,16 +166,23 @@
   .detail-history { margin-top: 10px; color: var(--muted); font-size: 0.8rem; }
   .btn-sm { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
   .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
-  .pred-grid {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
-  }
-  .pred-grid .pred-box {
+  .timeslip {
     background: var(--card2); border: 1px solid var(--accent); border-radius: 10px;
-    padding: 10px 14px; text-align: center;
+    padding: 8px 14px; margin: 0 0 10px 0;
   }
-  .pred-grid .pred-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-  .pred-grid .pred-value { font-size: 1.45rem; font-weight: 700; color: var(--text); }
-  .pred-grid .pred-sub { font-size: 0.72rem; color: var(--muted); }
+  .timeslip .ts-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 5px 0; border-bottom: 1px dashed var(--border);
+  }
+  .timeslip .ts-row:last-child { border-bottom: none; }
+  .timeslip .ts-label { font-size: 0.82rem; color: var(--text); font-weight: 600; }
+  .timeslip .ts-label .ts-n { font-size: 0.68rem; color: var(--muted); font-weight: 400; }
+  .timeslip .ts-value { font-size: 1.3rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .timeslip .ts-empty { opacity: .4; }
+  .timeslip .ts-header {
+    text-align: center; font-size: 0.68rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; padding-bottom: 4px; border-bottom: 1px solid var(--border); margin-bottom: 2px;
+  }
   .weather-hero {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
   }
@@ -2043,27 +2050,19 @@ function renderPredNow(w) {
     { key: "et18", label: "201 m (1/8)", wind: 0.007 },
     { key: "et14", label: "402 m (1/4)", wind: 0.010 }
   ];
-  const grid = get("predGrid");
-  let boxes = "";
+  const slip = get("predGrid");
+  let rows = "";
   let any = false;
   dists.forEach(d => {
     const r = predictForDistance(d.key, w, d.wind);
-    if (r) {
-      any = true;
-      boxes += `<div class="pred-box">
-        <div class="pred-label">${d.label}</div>
-        <div class="pred-value">${r.pred.toFixed(3)}s</div>
-        <div class="pred-sub">${r.n} runs</div>
-      </div>`;
-    } else {
-      boxes += `<div class="pred-box" style="opacity:.45">
-        <div class="pred-label">${d.label}</div>
-        <div class="pred-value">–</div>
-        <div class="pred-sub">no data</div>
-      </div>`;
-    }
+    const empty = !r;
+    if (r) any = true;
+    rows += `<div class="ts-row${empty ? " ts-empty" : ""}">
+      <span class="ts-label">${d.label}${r ? ` <span class="ts-n">(${r.n} runs)</span>` : ""}</span>
+      <span class="ts-value">${r ? r.pred.toFixed(3) : "–"}</span>
+    </div>`;
   });
-  if (grid) grid.innerHTML = boxes;
+  if (slip) slip.innerHTML = `<div class="timeslip"><div class="ts-header">Predicted time slip</div>${rows}</div>`;
   if (!any) {
     meta.textContent = `No history yet – log runs with ET and weather to get a prediction. ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
     return;
@@ -2076,8 +2075,8 @@ function renderPredNow(w) {
 }
 
 function refreshPredWeather() {
-  const grid = get("predGrid");
-  if (grid) grid.innerHTML = `<div class="pred-box" style="grid-column:1/-1"><div class="pred-value" style="font-size:1rem;color:var(--muted)">🔄 Fetching weather…</div></div>`;
+  const slip = get("predGrid");
+  if (slip) slip.innerHTML = `<div class="timeslip"><div class="ts-header">Predicted time slip</div><div class="ts-row"><span class="ts-label" style="color:var(--muted)">🔄 Fetching weather…</span></div></div>`;
   fetchWeatherFor("pred");
 }
 
