@@ -1821,6 +1821,43 @@ function parsePastedSlip() {
   const filled = [];
   if (!tokens.length) { alert("No numbers found in the text."); return; }
 
+  // --- Datum-tolkning ---
+  // ISO: 2026-10-09 eller 2026/10/09
+  let dateMatch = clean.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (dateMatch) {
+    const d = dateMatch[1] + "-" + dateMatch[2].padStart(2, "0") + "-" + dateMatch[3].padStart(2, "0");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { get("run_date").value = d; filled.push("Date: " + d); }
+  }
+  if (!dateMatch) {
+    // YYMMDD: 261009 eller 26-10-09 (vanligt på slips)
+    dateMatch = clean.match(/\b(\d{2})[-]?(\d{2})[-]?(\d{2})\b/);
+    if (dateMatch) {
+      const yy = parseInt(dateMatch[1]);
+      const year = 2000 + yy;
+      const d = year + "-" + dateMatch[2] + "-" + dateMatch[3];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { get("run_date").value = d; filled.push("Date: " + d); }
+    }
+  }
+  if (!dateMatch) {
+    // DD/MM YY eller DD-MM-YY (svenskt/europeiskt)
+    dateMatch = clean.match(/\b(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})\b/);
+    if (dateMatch) {
+      let year = dateMatch[3];
+      if (year.length === 2) year = "20" + year;
+      const d = year + "-" + dateMatch[2].padStart(2, "0") + "-" + dateMatch[1].padStart(2, "0");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { get("run_date").value = d; filled.push("Date: " + d); }
+    }
+  }
+
+  // --- Tids-tolkning ---
+  // HH:MM:SS eller HH:MM (undvik ET-värden: kräv kolon eller context som "time"/"kl")
+  const timeMatch = clean.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+  if (timeMatch) {
+    const h = parseInt(timeMatch[1]);
+    const min = timeMatch[2];
+    if (h >= 0 && h <= 23) { get("run_time").value = String(h).padStart(2, "0") + ":" + min; filled.push("Time: " + String(h).padStart(2, "0") + ":" + min); }
+  }
+
   // Hjälpfunktioner
   const setVal = (id, val, label, decimals) => {
     const el = get(id);
@@ -1891,9 +1928,16 @@ function parsePastedSlip() {
   }
 
   if (filled.length) {
-    alert("Imported:\n" + filled.join("\n") + "\n\nCheck the time slip and adjust if needed.");
+    alert("Imported:\n" + filled.join("\n") + "\n\nCheck the time slip and adjust if needed.\nWeather is being fetched for the date/time.");
+    // Hämta väder för det tolkade datumet/tiden (automatiskt, tyst)
+    const d = get("run_date").value;
+    if (d && d !== new Date().toISOString().slice(0,10) && d >= "2022-01-01") {
+      fetchHistoricalWeather(true);
+    } else if (d === new Date().toISOString().slice(0,10)) {
+      fetchWeatherFor("run");
+    }
   } else {
-    alert("Could not interpret any values. Try a format like:\nR/T 0.128  60ft 1.621  330ft 4.512\n1/8 7.812 @ 143.6  1/4 12.205 @ 182.4");
+    alert("Could not interpret any values. Try a format like:\n2026-10-09 14:05\nR/T 0.128  60ft 1.621  330ft 4.512\n1/8 7.812 @ 143.6  1/4 12.205 @ 182.4");
   }
 }
 
