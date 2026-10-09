@@ -1411,6 +1411,7 @@ function openRunModal(editIndex) {
     get("run_dial").value = r.dial_in ?? "";
     get("run_delaybox").value = r.delay_box ?? "";
     get("run_mph").value = r.mph ?? "";
+    get("run_mph18").value = r.mph18 ?? "";
     const w = r.weather || {};
     get("run_temp").value = w.temp ?? "";
     get("run_wind").value = w.wind ?? "";
