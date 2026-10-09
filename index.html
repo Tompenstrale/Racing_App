@@ -521,6 +521,23 @@
 <div class="meta">Saved locally in the browser (localStorage) – example data only.</div>
 </div>
 
+<div class="card" id="cardCloud">
+  <h2>☁ Cloud sync</h2>
+  <p class="meta" style="margin-top:0;margin-bottom:12px">Push/pull the whole database (all vehicles, runs, settings) to a shared JSON file in a GitHub repository. Any device can pull, edit and push – last push wins, so always pull before editing and push after. The token is stored only on this device.</p>
+  <div class="grid">
+    <div class="field"><label>Repository (owner/name)</label><input id="cloud_repo" placeholder="Tompenstrale/Racing_App"></div>
+    <div class="field"><label>Branch</label><input id="cloud_branch" placeholder="main"></div>
+    <div class="field"><label>File path in repo</label><input id="cloud_path" placeholder="data/racingapp-data.json"></div>
+    <div class="field"><label>Token (fine-grained PAT, Contents: RW)</label><input id="cloud_token" type="password" placeholder="github_pat_…"></div>
+  </div>
+  <div class="btnrow" style="margin-top:14px">
+    <button onclick="pushToCloud()">☁ Push to cloud</button>
+    <button class="ghost" onclick="pullFromCloud()">☁ Pull from cloud</button>
+    <button class="ghost" onclick="saveCloudConfig()">Save settings</button>
+  </div>
+  <div class="meta" id="cloudStatus" style="margin-top:10px"></div>
+</div>
+
 <div class="modal" id="runModal">
   <div class="inner" style="width:min(560px,95vw);max-height:90vh;overflow-y:auto">
     <h3>⏱ Log run</h3>
@@ -2220,6 +2237,150 @@ function loadDemo() {
   });
 }
 
+/* ---- Cloud sync (GitHub) ---- */
+const LS_CLOUD = "racingbil.cloud";
+
+function cloudConfig() {
+  try { return JSON.parse(localStorage.getItem(LS_CLOUD)) || {}; } catch(e) { return {}; }
+}
+
+function readCloudInputs() {
+  return {
+    repo: get("cloud_repo").value.trim(),
+    branch: get("cloud_branch").value.trim() || "main",
+    path: get("cloud_path").value.trim() || "data/racingapp-data.json",
+    token: get("cloud_token").value.trim()
+  };
+}
+
+function saveCloudConfig() {
+  const cfg = readCloudInputs();
+  if (!cfg.repo) { alert("Enter repository (owner/name)."); return; }
+  localStorage.setItem(LS_CLOUD, JSON.stringify(cfg));
+  cloudStatus("Settings saved on this device.");
+}
+
+function loadCloudInputs() {
+  const cfg = cloudConfig();
+  get("cloud_repo").value = cfg.repo || "";
+  get("cloud_branch").value = cfg.branch || "main";
+  get("cloud_path").value = cfg.path || "data/racingapp-data.json";
+  get("cloud_token").value = cfg.token || "";
+}
+
+function cloudStatus(txt) {
+  const el = get("cloudStatus");
+  if (el) el.textContent = txt;
+}
+
+function b64encodeUtf8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+
+function b64decodeUtf8(b64) {
+  const bin = atob(b64.replace(/\n/g, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+function ghApi(path, opts) {
+  const cfg = readCloudInputs();
+  if (!cfg.repo || !cfg.token) throw new Error("Repository and token are required.");
+  return fetch("https://api.github.com" + path, {
+    ...opts,
+    headers: {
+      "Authorization": "Bearer " + cfg.token,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      ...(opts.headers || {})
+    }
+  }).then(async r => {
+    if (!r.ok) {
+      let msg = r.status + " " + r.statusText;
+      try { const j = await r.json(); if (j.message) msg = j.message; } catch(e) {}
+      throw new Error(msg);
+    }
+    return r.json();
+  });
+}
+
+function buildSyncPayload() {
+  save(true);
+  const vehicles = readVehicles();
+  if (!Object.keys(vehicles).length) throw new Error("No data to push.");
+  return {
+    app: "RacingApp",
+    version: 2,
+    pushed: new Date().toISOString(),
+    active_id: localStorage.getItem(LS_ACTIVE),
+    vehicles
+  };
+}
+
+async function pushToCloud() {
+  const cfg = readCloudInputs();
+  const status = get("cloudStatus");
+  try {
+    status.textContent = "Pushing…";
+    const payload = buildSyncPayload();
+    const b64 = b64encodeUtf8(JSON.stringify(payload));
+    let sha = null;
+    try {
+      const existing = await ghApi("/repos/" + cfg.repo + "/contents/" + cfg.path + "?ref=" + encodeURIComponent(cfg.branch), { method: "GET" });
+      sha = existing.sha;
+    } catch (e) {
+      if (!/404|Not Found/i.test(e.message)) throw e;
+    }
+    await ghApi("/repos/" + cfg.repo + "/contents/" + cfg.path, {
+      method: "PUT",
+      body: JSON.stringify({
+        message: "RacingApp data sync " + new Date().toISOString().slice(0, 16).replace("T", " "),
+        content: b64,
+        branch: cfg.branch,
+        ...(sha ? { sha } : {})
+      })
+    });
+    localStorage.setItem(LS_CLOUD, JSON.stringify(cfg));
+    status.textContent = "✓ Pushed " + new Date().toLocaleTimeString() + " – all vehicles, runs and settings are now in the cloud file.";
+  } catch (e) {
+    status.textContent = "✕ Push failed: " + e.message;
+  }
+}
+
+async function pullFromCloud() {
+  const cfg = readCloudInputs();
+  const status = get("cloudStatus");
+  try {
+    status.textContent = "Pulling…";
+    const res = await ghApi("/repos/" + cfg.repo + "/contents/" + cfg.path + "?ref=" + encodeURIComponent(cfg.branch), { method: "GET" });
+    const payload = JSON.parse(b64decodeUtf8(res.content));
+    if (payload.app !== "RacingApp" || !payload.vehicles) throw new Error("The cloud file is not valid RacingApp data.");
+    if (!confirm("This replaces all local data with the cloud version (" + Object.keys(payload.vehicles).length + " vehicles, pushed " + (payload.pushed || "?") + ").\nUnsaved local changes will be lost. Continue?")) {
+      status.textContent = "Pull cancelled.";
+      return;
+    }
+    localStorage.setItem(LS_CLOUD, JSON.stringify(cfg));
+    writeVehicles(payload.vehicles);
+    if (payload.active_id && payload.vehicles[payload.active_id]) {
+      localStorage.setItem(LS_ACTIVE, payload.active_id);
+    } else {
+      const first = Object.keys(payload.vehicles)[0];
+      if (first) localStorage.setItem(LS_ACTIVE, first);
+      else localStorage.removeItem(LS_ACTIVE);
+    }
+    const id = localStorage.getItem(LS_ACTIVE);
+    load(id ? payload.vehicles[id] : {});
+    renderVehicleSelect();
+    status.textContent = "✓ Pulled " + new Date().toLocaleTimeString() + " – local data now matches the cloud file.";
+  } catch (e) {
+    status.textContent = "✕ Pull failed: " + e.message;
+  }
+}
+
 function exportBackup() {
   save(true);
   const vehicles = readVehicles();
@@ -2307,6 +2468,7 @@ if (activeId) {
 }
 fillTrackSelects();
 get("predTrack").value = lastTrack() || DEFAULT_TRACK;
+loadCloudInputs();
 showView("pred");
 </script>
 </body>
