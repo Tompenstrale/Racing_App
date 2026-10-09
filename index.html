@@ -220,6 +220,7 @@
   <button class="viewbtn" id="viewbtn-runs" onclick="showView('runs')">⏱ Runs</button>
   <button class="viewbtn" id="viewbtn-pred" onclick="showView('pred')">📊 Prediction</button>
   <button class="viewbtn" id="viewbtn-data" onclick="showView('data')">💾 Data</button>
+  <button class="viewbtn" id="viewbtn-analysis" onclick="showView('analysis')">📈 Analysis</button>
   <img class="applogo" src="logo.png" alt="RacingApp logo" style="cursor:pointer" onclick="logoClick()">
 </div>
 
@@ -719,6 +720,32 @@
   </div>
   <div class="meta" id="cloudStatus" style="margin-top:10px"></div>
 </div>
+
+  <div class="btnrow">
+    <button class="ghost" onclick="showView('garage')">← Back to garage</button>
+  </div>
+</div>
+
+<div id="viewAnalysis" style="display:none">
+  <h1>📈 Analysis – <span class="num" id="analysisVehicleName"></span></h1>
+  <div class="subtitle">Personal bests, trends and settings comparison from your logged runs.</div>
+
+  <div class="card">
+    <h2>Personal bests</h2>
+    <table id="pbTable"><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>ET vs density altitude</h2>
+    <p class="meta" style="margin-top:0;margin-bottom:10px">How much does DA affect your ET? Based on included runs with weather data.</p>
+    <div id="daAnalysis"></div>
+  </div>
+
+  <div class="card">
+    <h2>Settings comparison</h2>
+    <p class="meta" style="margin-top:0;margin-bottom:10px">Average ET per value of each tracked setting (e.g. tire pressure). Only included runs with the setting logged.</p>
+    <div id="settingsAnalysis"></div>
+  </div>
 
   <div class="btnrow">
     <button class="ghost" onclick="showView('garage')">← Back to garage</button>
@@ -1348,13 +1375,16 @@ function showView(v) {
   get("viewGarage").style.display = v === "garage" ? "" : "none";
   get("viewRuns").style.display = v === "runs" ? "" : "none";
   get("viewData").style.display = v === "data" ? "" : "none";
+  get("viewAnalysis").style.display = v === "analysis" ? "" : "none";
   get("viewPred").style.display = v === "pred" ? "" : "none";
   get("viewbtn-garage").classList.toggle("active", v === "garage");
   get("viewbtn-runs").classList.toggle("active", v === "runs");
   get("viewbtn-data").classList.toggle("active", v === "data");
+  get("viewbtn-analysis").classList.toggle("active", v === "analysis");
   get("viewbtn-pred").classList.toggle("active", v === "pred");
   if (v === "runs") { renderRuns(); get("runsVehicleName").textContent = get("name").value || "New vehicle"; }
   if (v === "data") { loadCloudInputs(); }
+  if (v === "analysis") { renderAnalysis(); }
   if (v === "pred") { predRefresh(); refreshPredWeather(); }
 }
 
@@ -2335,6 +2365,16 @@ function renderPredNow(w) {
       <span class="ts-value">${r ? r.pred.toFixed(3) : "–"}</span>
     </div>`;
   });
+  const pred14 = predictForDistance("et14", w, 0.010);
+  const pred18 = predictForDistance("et18", w, 0.007);
+  const dialBase = pred14 ? pred14.pred : pred18 ? pred18.pred : null;
+  if (dialBase) {
+    const DIAL_MARGIN = 0.02;
+    rows += `<div class="ts-row" style="border-top:2px solid var(--accent)">
+      <span class="ts-label">Suggested dial-in <span class="ts-n">(+${DIAL_MARGIN}s margin)</span></span>
+      <span class="ts-value" style="color:var(--accent)">${(dialBase + DIAL_MARGIN).toFixed(3)}</span>
+    </div>`;
+  }
   if (slip) slip.innerHTML = `<div class="timeslip"><div class="ts-header">Predicted time slip</div>${rows}</div>`;
   if (!any) {
     meta.textContent = `No history yet – log runs with ET and weather to get a prediction. ${w.track || "Track"}: ${w.temp}\u00b0C, wind ${w.wind} m/s, ${w.cond}.`;
@@ -2816,6 +2856,112 @@ function logoClick() {
   if (confirm("Open www.lindbladracing.se in a new tab?")) {
     window.open("https://www.lindbladracing.se", "_blank");
   }
+}
+
+/* ---- Analysis ---- */
+function renderAnalysis() {
+  get("analysisVehicleName").textContent = get("name").value || "New vehicle";
+  const runs = vehicleRuns.filter(r => r.include_in_pred !== false);
+  renderPB(runs);
+  renderDaAnalysis(runs);
+  renderSettingsAnalysis(runs);
+}
+
+function renderPB(runs) {
+  const tb = get("pbTable").querySelector("tbody");
+  tb.innerHTML = "";
+  const dists = [
+    { key: "rt", label: "Reaction Time", dec: 3, low: true },
+    { key: "ft60", label: "60 ft", dec: 3 },
+    { key: "et100", label: "330 ft", dec: 3 },
+    { key: "et18", label: "660 ft (1/8)", dec: 3 },
+    { key: "et14", label: "1320 ft (1/4)", dec: 3 },
+    { key: "mph18", label: "660 ft Speed", dec: 1, low: true },
+    { key: "mph", label: "1320 ft Speed", dec: 1, low: true }
+  ];
+  let any = false;
+  dists.forEach(d => {
+    const vals = runs.filter(r => r[d.key]).map(r => ({ v: parseFloat(r[d.key]), r }));
+    if (!vals.length) return;
+    any = true;
+    vals.sort((a, b) => d.low ? a.v - b.v : b.v - a.v);
+    const best = vals[0];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${d.label}</td><td><strong>${best.v.toFixed(d.dec)}</strong> <span class="muted" style="font-size:.78rem">(${best.r.date}${best.r.track ? " · " + best.r.track : ""})</span></td>`;
+    tb.appendChild(tr);
+  });
+  if (!any) tb.innerHTML = "<tr><td style='color:var(--muted)'>No included runs with times yet.</td></tr>";
+}
+
+function renderDaAnalysis(runs) {
+  const el = get("daAnalysis");
+  const pts = runs
+    .filter(r => r.et14 && r.weather && r.weather.densityAlt !== null && r.weather.densityAlt !== undefined)
+    .map(r => ({ da: parseFloat(r.weather.densityAlt), et: parseFloat(r.et14) }));
+  if (pts.length < 2) {
+    el.innerHTML = "<span class='muted'>Need at least 2 included 1320 ft runs with DA data (log weather with runs).</span>";
+    return;
+  }
+  // Enkel linjär regression: ET = a + b*DA
+  const n = pts.length;
+  const sumDa = pts.reduce((s2, p) => s2 + p.da, 0);
+  const sumEt = pts.reduce((s2, p) => s2 + p.et, 0);
+  const sumDaEt = pts.reduce((s2, p) => s2 + p.da * p.et, 0);
+  const sumDa2 = pts.reduce((s2, p) => s2 + p.da * p.da, 0);
+  const denom = n * sumDa2 - sumDa * sumDa;
+  if (Math.abs(denom) < 1e-9) {
+    el.innerHTML = "<span class='muted'>Not enough variation in DA to compute a trend yet.</span>";
+    return;
+  }
+  const b = (n * sumDaEt - sumDa * sumEt) / denom;
+  const a = (sumEt - b * sumDa) / n;
+  const minDa = Math.min(...pts.map(p => p.da));
+  const maxDa = Math.max(...pts.map(p => p.da));
+  el.innerHTML = `
+    <div class="detail-grid">
+      <div><div class="dl">Runs analyzed</div><div class="dv">${n}</div></div>
+      <div><div class="dl">DA range</div><div class="dv">${minDa} – ${maxDa} ft</div></div>
+      <div><div class="dl">ET change per 100 ft DA</div><div class="dv">${(b * 100).toFixed(3)}s</div></div>
+      <div><div class="dl">ET at DA 0</div><div class="dv">${a.toFixed(3)}s</div></div>
+    </div>
+    <div class="meta" style="margin-top:8px">${b > 0 ? "Higher DA (thinner air) makes you slower, as expected." : b < 0 ? "Higher DA appears to make you faster – check for outliers or too few runs." : "No DA dependency detected."}</div>`;
+}
+
+function renderSettingsAnalysis(runs) {
+  const el = get("settingsAnalysis");
+  const keys = Object.keys(trackSettings);
+  if (!keys.length) {
+    el.innerHTML = "<span class='muted'>No tracked settings defined for this vehicle.</span>";
+    return;
+  }
+  let html = "";
+  let any = false;
+  keys.forEach(key => {
+    const groups = {};
+    runs.forEach(r => {
+      const val = r.settings_snapshot ? r.settings_snapshot[key] : null;
+      if (val === null || val === undefined || !r.et14) return;
+      if (!groups[val]) groups[val] = { sum: 0, n: 0, best: parseFloat(r.et14) };
+      const et = parseFloat(r.et14);
+      groups[val].sum += et;
+      groups[val].n++;
+      if (et < groups[val].best) groups[val].best = et;
+    });
+    const vals = Object.keys(groups);
+    if (!vals.length) return;
+    any = true;
+    const st = trackSettings[key];
+    html += `<h3 style="font-size:.85rem;margin:12px 0 6px">${st.label || key} <span class="muted" style="font-weight:400">(${st.unit || ""})</span></h3>`;
+    html += `<table><thead><tr><th>Value</th><th>Avg 1320 ft ET</th><th>Best 1320 ft ET</th><th>Runs</th></tr></thead><tbody>`;
+    vals.sort((x, y2) => groups[x].n - groups[y2].n).reverse();
+    vals.forEach(v => {
+      const g = groups[v];
+      html += `<tr><td><strong>${v}</strong></td><td>${(g.sum / g.n).toFixed(3)}s</td><td>${g.best.toFixed(3)}s</td><td>${g.n}</td></tr>`;
+    });
+    html += "</tbody></table>";
+  });
+  if (!any) html = "<span class='muted'>No included runs with settings snapshots and 1320 ft ET yet. Snapshots are saved automatically when you log runs.</span>";
+  el.innerHTML = html;
 }
 
 /* ---- Cloud sync (GitHub) ---- */
