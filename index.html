@@ -1897,7 +1897,7 @@ function parsePastedSlip() {
   }
 }
 
-function scanRunPhoto() {
+async function scanRunPhoto() {
   if (!runPhotoData) return;
   const btn = get("run_photo_scan");
   btn.disabled = true;
