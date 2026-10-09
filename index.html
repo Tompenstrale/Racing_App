@@ -106,6 +106,15 @@
     position: sticky; top: 0; z-index: 20;
     background: var(--bg); padding: 10px 0;
   }
+  .applogo {
+    position: fixed; top: 8px; right: 10px;
+    width: 48px; height: 48px; object-fit: contain;
+    z-index: 30; pointer-events: none;
+    border-radius: 8px;
+  }
+  @media (max-width: 600px) {
+    .applogo { width: 36px; height: 36px; top: 6px; right: 8px; }
+  }
   .viewbtn {
     background: var(--card); color: var(--muted); border: 1px solid var(--border);
     border-radius: 10px; padding: 10px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
@@ -165,6 +174,8 @@
 </style>
 </head>
 <body>
+
+<img class="applogo" src="logo.png" alt="RacingApp logo">
 
 <div class="viewnav">
   <button class="viewbtn active" id="viewbtn-garage" onclick="showView('garage')">🔧 Garage</button>
