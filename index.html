@@ -579,6 +579,7 @@
     </div>
     <div class="meta" id="run_headwind" style="display:none"></div>
     <button class="ghost" style="margin-top:8px" onclick="fetchWeatherFor('run')">📍 Fetch current weather</button>
+    <button class="ghost" style="margin-top:8px" onclick="fetchHistoricalWeather()">🕓 Fetch weather for date/time</button>
     <h3 style="font-size:.9rem;margin:14px 0 8px">Photo (e.g. time board)</h3>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="file" id="run_photo_input" accept="image/*" capture="environment" style="display:none" onchange="onRunPhoto(this)">
@@ -1600,6 +1601,68 @@ function fetchWeatherFor(prefix) {
     .catch(() => { if (prefix === "run") alert("Could not fetch weather for " + track.name + " – fill in manually."); });
 }
 
+/* --- Historiskt väder: Open-Meteo archive-API, timupplöst, från 2022 --- */
+function fetchHistoricalWeather() {
+  const date = get("run_date").value;
+  const time = get("run_time").value || "12:00";
+  if (!date) { alert("Enter a date first."); return; }
+  const trackEl = get("run_track");
+  const track = trackByName(trackEl ? trackEl.value : DEFAULT_TRACK);
+  const hour = parseInt(time.slice(0, 2)) || 12;
+  const statusEl = get("run_weather_full");
+  const btnLabel = event && event.target ? event.target : null;
+  if (statusEl) statusEl.textContent = "🕓 Fetching historical weather…";
+
+  const url = "https://archive-api.open-meteo.com/v1/archive?latitude=" + track.lat + "&longitude=" + track.lon +
+    "&start_date=" + date + "&end_date=" + date +
+    "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code" +
+    "&timezone=auto";
+
+  fetch(url)
+    .then(r => r.json())
+    .then(j => {
+      const h = j.hourly || {};
+      if (!h.time || !h.time.length) throw new Error("no hourly data");
+      // hitta närmaste timme (körningar sker oftast 10-19)
+      let idx = Math.min(Math.max(hour, 0), h.time.length - 1);
+      const w = {
+        temp: h.temperature_2m ? h.temperature_2m[idx] : "",
+        wind: h.wind_speed_10m ? h.wind_speed_10m[idx] : "",
+        hum: h.relative_humidity_2m ? h.relative_humidity_2m[idx] : "",
+        cond: weatherName(h.weather_code ? h.weather_code[idx] : null),
+        track: track.name,
+        windDir: h.wind_direction_10m ? h.wind_direction_10m[idx] : null,
+        headwind: headwindComponent(
+          h.wind_speed_10m ? h.wind_speed_10m[idx] : null,
+          h.wind_direction_10m ? h.wind_direction_10m[idx] : null,
+          track.bearing
+        ),
+        pressure: h.surface_pressure ? h.surface_pressure[idx] : null,
+        densityAlt: densityAltitudeFt(
+          h.temperature_2m ? h.temperature_2m[idx] : null,
+          h.surface_pressure ? h.surface_pressure[idx] : null,
+          h.relative_humidity_2m ? h.relative_humidity_2m[idx] : null,
+          track.alt
+        )
+      };
+      w.historical = true;
+      lastWeather = w;
+      // fyll fälten
+      get("run_temp").value = w.temp ?? "";
+      get("run_wind").value = w.wind ?? "";
+      get("run_winddir").value = w.windDir ?? "";
+      get("run_hum").value = w.hum ?? "";
+      get("run_cond").value = w.cond ?? "";
+      get("run_include").checked = get("run_include").checked;
+      updateWeatherHero("run", w);
+      if (statusEl) statusEl.textContent = "Historical weather for " + date + " " + String(hour).padStart(2, "0") + ":00 (" + h.time[idx].slice(11, 16) + " data)";
+    })
+    .catch(e => {
+      if (statusEl) statusEl.textContent = "";
+      alert("Could not fetch historical weather: " + e.message + "\nNote: archive data starts from 2022 and needs internet.");
+    });
+}
+
 function weatherName(code) {
   const map = {0:"Clear",1:"Mostly clear",2:"Variable",3:"Cloudy",45:"Fog",48:"Fog",51:"Drizzle",61:"Rain",63:"Rain",65:"Rain",71:"Snow",80:"Showers",95:"Thunder"};
   return map[code] || "–";
@@ -1795,7 +1858,7 @@ function saveRun() {
     date,
     time: get("run_time").value,
     track: get("run_track").value,
-    weather_source: "banbaserad",
+    weather_source: (lastWeather && lastWeather.historical) ? "historical" : (lastWeather && get("run_temp").value !== "" && lastWeather.temp === get("run_temp").value) ? "current" : "manual",
     ft60: get("run_ft60").value || null,
     et100: get("run_et100").value || null,
     et18: get("run_et18").value || null,
